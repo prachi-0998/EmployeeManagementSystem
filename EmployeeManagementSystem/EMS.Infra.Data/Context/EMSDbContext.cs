@@ -1,12 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.EntityFrameworkCore;
+using EMS.Domain.Entities;
 
 namespace EMS.Infra.Data.Context
 {
-    internal class EMSDbContext
+    public class EMSDbContext: DbContext
     {
+        public EMSDbContext(DbContextOptions options) : base(options)
+        {
+            
+        }
+
+        public DbSet<User> Users { get; set; }
+        public DbSet<Employee> Employee { get; set; }
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<Department> Departments { get; set; }
     }
 }
