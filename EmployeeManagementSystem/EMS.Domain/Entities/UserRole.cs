@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EMS.Domain.Entities
 {
-    internal class User
+    public class UserRole
     {
     }
 }

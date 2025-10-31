@@ -6,9 +6,7 @@ using System.Threading.Tasks;
 
 namespace EMS.Domain.Entities
 {
-    internal class Role
+    public class Employees
     {
-        public int RoleID { get; set; }
-        public string RoleName { get; set; }
     }
 }
