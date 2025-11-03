@@ -5,14 +5,15 @@ namespace EMS.Infra.Data.Context
 {
     public class EMSDbContext: DbContext
     {
+        // we will see the use of this ctor later when we create new connection string will inject the connection through program.cs file
         public EMSDbContext(DbContextOptions options) : base(options)
         {
             
         }
 
-        public DbSet<User> Users { get; set; }
-        public DbSet<Employee> Employee { get; set; }
-        public DbSet<Role> Roles { get; set; }
-        public DbSet<Department> Departments { get; set; }
+        public DbSet<Users> Users { get; set; }
+        public DbSet<Employees> Employees { get; set; }
+        public DbSet<Roles> Roles { get; set; }
+        public DbSet<Departments> Departments { get; set; }
     }
 }
