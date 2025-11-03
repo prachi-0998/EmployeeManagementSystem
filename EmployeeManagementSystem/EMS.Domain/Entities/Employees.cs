@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EMS.Domain.Entities
 {
-        public class Employee : BaseEntity
+        public class Employees : BaseEntity
         {
             public int EmployeeID { get; set; }
 
