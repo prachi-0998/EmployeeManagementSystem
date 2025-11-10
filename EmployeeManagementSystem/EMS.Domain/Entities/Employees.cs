@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Linq;
 using System.Text;
@@ -10,7 +9,6 @@ namespace EMS.Domain.Entities
 {
         public class Employees : BaseEntity
         {
-            [Key]
             public int EmployeeID { get; set; }
 
             public string FirstName { get; set; } = string.Empty;
