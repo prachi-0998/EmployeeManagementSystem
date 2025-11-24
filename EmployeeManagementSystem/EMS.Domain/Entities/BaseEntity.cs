@@ -8,7 +8,7 @@ namespace EMS.Domain.Entities
 {
     public class BaseEntity
     {
-        public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
+        public DateTime? CreatedOn { get; set; } = DateTime.UtcNow;
         public int? CreatedBy { get; set; }
 
         public DateTime? UpdatedOn { get; set; }

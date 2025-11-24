@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Linq;
 using System.Text;
@@ -7,9 +8,9 @@ using System.Threading.Tasks;
 
 namespace EMS.Domain.Entities
 {
-       
-       public class UserRole : BaseEntity
-        {
+        public class UserRole : BaseEntity
+         {
+            [Key]
             public int UserRoleID { get; set; }
 
             public int UserID { get; set; }
@@ -21,7 +22,7 @@ namespace EMS.Domain.Entities
           
             public Users? User { get; set; }   
             public Roles? Role { get; set; }   
-        }
+         }
     
 
 
