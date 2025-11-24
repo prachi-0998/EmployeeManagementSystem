@@ -15,5 +15,7 @@ namespace EMS.Infra.Data.Context
         public DbSet<Employees> Employees { get; set; }
         public DbSet<Roles> Roles { get; set; }
         public DbSet<Departments> Departments { get; set; }
+        public DbSet<UserRole> UserRole { get; set; }
+
     }
 }
