@@ -1,5 +1,6 @@
 ﻿using EMS.Application.DTO;
 using EMS.Domain.Entities;
+using EMS.Domain.Repository;
 using EMS.Infra.Data.Context;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,12 +14,14 @@ namespace EMS.WebAPI.Controllers
     public class UsersController : ControllerBase
     {
         private readonly EMSDbContext dbContext;
+        private readonly IUserRepository userRepository;
 
 
-        public UsersController(EMSDbContext dbContext)
+        public UsersController(EMSDbContext dbContext, IUserRepository userRepository)
         {
             this.dbContext = dbContext;
-           
+            this.userRepository = userRepository;
+
         }
 
         //GET: Get all users
@@ -26,8 +29,9 @@ namespace EMS.WebAPI.Controllers
         public async Task<IActionResult> GetAllUsersAsync()
         {
             //Get data from database - Domain Models(using DbContext)
-            var usersDomain = await dbContext.Users.ToListAsync();
-
+           // var usersDomain = await dbContext.Users.ToListAsync();
+            //Get data using Repository Pattern
+            var usersDomain = await userRepository.GetAllUsersAsync();
 
             //Map Domain Models to DTOs
             var usersDto = new List<UsersDTO>();
@@ -52,16 +56,19 @@ namespace EMS.WebAPI.Controllers
         [HttpGet]
         [Route("{id}")]
 
-        public async Task<IActionResult> GetUserById([FromRoute] int id)
+        public async Task<IActionResult> GetUserByIdAsync([FromRoute] int id)
         {
             // Replace this line in GetUserById method:
             // var user = dbContext.Users.Find(id);  //Find method only works with primary key so for other fields use FirstOrDefault
 
-            var user = await dbContext.Users.FindAsync(id);  // Use async version for await
+            // var user = await dbContext.Users.FindAsync(id);  // Use async version for await
 
-            var userDomain = await dbContext.Users.FirstOrDefaultAsync(u => u.UserID == id);
+            // var userDomain = await dbContext.Users.FirstOrDefaultAsync(u => u.UserID == id);
 
-            if (user == null)
+            //Get data using Repository Pattern
+            var userDomain = await userRepository.GetUserByIDAsync(id);
+
+            if (userDomain == null)
             {
                 return NotFound();
             }
@@ -79,7 +86,7 @@ namespace EMS.WebAPI.Controllers
 
         //POST: To create a new user
         [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] AddUserRequestDTO userDto)
+        public async Task<IActionResult> CreateUserAsync([FromBody] AddUserRequestDTO userDto)
         {
             //Map/Convert UserDTO to User Domain model
             var userDomain = new Users
@@ -89,8 +96,11 @@ namespace EMS.WebAPI.Controllers
             };
 
             //Use Domain model to create & save data to database
-            dbContext.Users.Add(userDomain);
-            await dbContext.SaveChangesAsync();
+            // dbContext.Users.Add(userDomain);
+            //await dbContext.SaveChangesAsync();
+
+            //Use Repository Pattern to create user
+            userDomain = await userRepository.CreateUserAsync(userDomain);
 
             //Mapping Domain model back to DTO
             var newuserDto = new AddUserRequestDTO
@@ -100,28 +110,27 @@ namespace EMS.WebAPI.Controllers
                 EmailID = userDomain.EmailID
             };
 
-            return CreatedAtAction(nameof(GetUserById), new { id = newuserDto.UserID }, newuserDto);
+            return CreatedAtAction(nameof(GetUserByIdAsync), new { id = newuserDto.UserID }, newuserDto);
         }
 
         //PUT: Update the resource
         [HttpPut]
         [Route("{id}")]
 
-        public async Task<IActionResult> UpdateUser([FromRoute] int id, [FromBody] UpdateUserRequestDTO updateUserRequestDto)
+        public async Task<IActionResult> UpdateUserAsync([FromRoute] int id, [FromBody] UpdateUserRequestDTO updateUserRequestDto)
         {
-            
-            var userDomain = await dbContext.Users.FirstOrDefaultAsync(u => u.UserID == id);
-
-            //Check if region exists
-            if (userDomain == null)
+            //Map DTO to Domin Model
+            var userDomain = new Users
             {
+                UserName = updateUserRequestDto.UserName,
+                EmailID = updateUserRequestDto.EmailID,
+            };
+            //var userDomain = await dbContext.Users.FirstOrDefaultAsync(u => u.UserID == id);
+            userDomain = await userRepository.UpdateUserAsync(id, userDomain);
+           
+           if (userDomain == null) {    
                 return NotFound();
             }
-            //Map DTO to Domin Model
-            userDomain.UserName = updateUserRequestDto.UserName;
-            userDomain.EmailID = updateUserRequestDto.EmailID;
-           
-            await dbContext.SaveChangesAsync();
 
             //Convert DomainModel to DTO
             var userDto = new UsersDTO
@@ -135,20 +144,15 @@ namespace EMS.WebAPI.Controllers
         //DELETE: Delete a user
         [HttpDelete]
         [Route("{id}")]
-        public async Task<IActionResult> DeleteUser([FromRoute] int id)
+        public async Task<IActionResult> DeleteUserAsync([FromRoute] int id)
         {
-            // Replace this line in DeleteUser method:
-            // var userDomain = await dbContext.Users.FirstOrDefault(u => u.UserID == id);
-
-            var userDomain = await dbContext.Users.FirstOrDefaultAsync(u => u.UserID == id);  // Use async version for await
+            var userDomain = await userRepository.DeleteAsync(id);
             //Check if user exists
             if (userDomain == null)
             {
                 return NotFound();
             }
-            //Delete the user
-            dbContext.Users.Remove(userDomain);
-            await dbContext.SaveChangesAsync();
+            
             //returning deleted user back after Converting DomainModel to DTO
             var userDto = new UsersDTO
             {

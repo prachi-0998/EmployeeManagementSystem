@@ -1,7 +1,8 @@
 ﻿using EMS.Application.DTO;
 using EMS.Domain.Entities;
-using EMS.Infra.Data.Context;
+using EMS.Domain.Repository;
 using EMS.Infra.Data;
+using EMS.Infra.Data.Context;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,35 +13,43 @@ namespace EMS.API.Controllers
     public class DepartmentsController : ControllerBase
     {
         private readonly EMSDbContext dbContext;
-        
+        private readonly IDepartmentRepository deptRepository;
 
-        public DepartmentsController(EMSDbContext dbContext)
+
+        public DepartmentsController(EMSDbContext dbContext, IDepartmentRepository deptRepository)
         {
             this.dbContext = dbContext;
-         
+            this.deptRepository = deptRepository;
+
         }
 
         // GET: api/departments
         [HttpGet]
         public async Task<IActionResult> GetAllDepartmentsAsync()
         {
-            var departments = await dbContext.Departments.ToListAsync();
+            var deptsDomain = await deptRepository.GetAllDepartmentsAsync();
 
-            var departmentsDto = departments.Select(d => new DepartmentsDTO
+            var deptsDto = new List<DepartmentsDTO>();
+
+            foreach (var deptDomain in deptsDomain)
             {
-                DepartmentID = d.DepartmentID,
-                DepartmentName = d.DepartmentName,
-                IsActive = d.IsActive
-            }).ToList();
-
-            return Ok(departmentsDto);
+                var deptDto = new DepartmentsDTO
+                {
+                    DepartmentID = deptDomain.DepartmentID,
+                    DepartmentName = deptDomain.DepartmentName,
+                    IsActive = deptDomain.IsActive
+                };
+                deptsDto.Add(deptDto);
+            }
+            
+            return Ok(deptsDto);
         }
 
         // GET: api/departments/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetDepartmentById([FromRoute] int id)
+        public async Task<IActionResult> GetDepartmentByIDAsync([FromRoute] int id)
         {
-            var department = dbContext.Departments.FirstOrDefault(d => d.DepartmentID == id);
+            var department = await deptRepository.GetDepartmentByIDAsync(id);
 
             if (department == null)
                 return NotFound();
@@ -56,31 +65,52 @@ namespace EMS.API.Controllers
 
         // POST: api/departments
         [HttpPost]
-        public async Task<IActionResult> CreateDepartment([FromBody] AddDepartmentRequestDTO dto)
+        public async Task<IActionResult> CreateDepartmentAsync([FromBody] AddDepartmentRequestDTO dto)
         {
-            var department = new Departments
+           
+            var deptDomain = new Departments
             {
-                DepartmentName = dto.DepartmentName,
-                IsActive = true
+                DepartmentName = dto.DepartmentName
             };
 
-            dbContext.Departments.Add(department);
-            dbContext.SaveChanges();
+          
+            deptDomain = await deptRepository.CreateDepartmentAsync(deptDomain);
 
-            var newDto = new DepartmentsDTO
+            //Mapping Domain model back to DTO
+            var newuserDto = new AddDepartmentRequestDTO
             {
-                DepartmentID = department.DepartmentID,
-                DepartmentName = department.DepartmentName,
-                IsActive = department.IsActive
+                DepartmentID = deptDomain.DepartmentID,
+                DepartmentName = deptDomain.DepartmentName,
+                
             };
 
-            return CreatedAtAction(nameof(GetDepartmentById), new { id = newDto.DepartmentID }, newDto);
+            return CreatedAtAction(nameof(GetDepartmentByIDAsync), new { id = newuserDto.DepartmentID }, newuserDto);
         }
 
         // PUT: api/departments/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateDepartment([FromRoute] int id, [FromBody] UpdateDepartmentRequestDTO dto)
+        public async Task<IActionResult> UpdateDepartmentAsync([FromRoute] int id, [FromBody] UpdateDepartmentRequestDTO dto)
         {
+            var deptDomain = new Departments
+            {
+                DepartmentName = dto.DepartmentName,
+            };
+            //var userDomain = await dbContext.Users.FirstOrDefaultAsync(u => u.UserID == id);
+            deptDomain = await deptRepository.UpdateDepartmentAsync(id, deptDomain);
+
+            if (deptDomain == null)
+            {
+                return NotFound();
+            }
+
+            //Convert DomainModel to DTO
+            var deptDto = new DepartmentsDTO
+            {
+                DepartmentID = deptDomain.DepartmentID,
+                DepartmentName = deptDomain.DepartmentName
+            };
+            return Ok(deptDto);
+
             var department = dbContext.Departments.FirstOrDefault(d => d.DepartmentID == id);
             if (department == null)
                 return NotFound();
@@ -102,16 +132,23 @@ namespace EMS.API.Controllers
 
         // DELETE: api/departments/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteDepartment([FromRoute] int id)
+        public async Task<IActionResult> DeleteDepartmentAsync([FromRoute] int id)
         {
-            var department = dbContext.Departments.FirstOrDefault(d => d.DepartmentID == id);
-            if (department == null)
+            var deptDomain = await deptRepository.DeleteDepartmentAsync(id);
+            //Check if user exists
+            if (deptDomain == null)
+            {
                 return NotFound();
+            }
 
-            dbContext.Departments.Remove(department);
-            dbContext.SaveChanges();
-
-            return Ok();
+            //returning deleted user back after Converting DomainModel to DTO
+            var deptDto = new DepartmentsDTO
+            {
+                DepartmentID = deptDomain.DepartmentID,
+                DepartmentName = deptDomain.DepartmentName
+               
+            };
+            return Ok(deptDto);
         }
     }
 }

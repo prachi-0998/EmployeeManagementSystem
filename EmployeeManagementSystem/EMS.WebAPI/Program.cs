@@ -1,5 +1,8 @@
 using EMS.Infra.Data.Context;
+using EMS.Application.Mappings;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +15,10 @@ builder.Services.AddSwaggerGen();
 
 //injecting DBContext
 builder.Services.AddDbContext<EMSDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+//injecting Repository
+builder.Services.AddScoped<EMS.Domain.Repository.IUserRepository, EMS.Infra.Data.Repository.SQLUserRepository>();
+
 
 var app = builder.Build();
 
