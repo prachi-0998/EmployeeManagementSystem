@@ -36,9 +36,9 @@ namespace EMS.API.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetRoleById([FromRoute] int id)
+        public async Task<IActionResult> GetRoleById([FromRoute] int id)
         {
-            var role = dbContext.Roles.FirstOrDefault(r => r.RoleID == id);
+            var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.RoleID == id);
             if (role == null)
                 return NotFound();
 
@@ -52,7 +52,7 @@ namespace EMS.API.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateRole([FromBody] AddRoleRequestDTO dto)
+        public async Task<IActionResult> CreateRole([FromBody] AddRoleRequestDTO dto)
         {
             var role = new Roles
             {
@@ -61,7 +61,7 @@ namespace EMS.API.Controllers
             };
 
             dbContext.Roles.Add(role);
-            dbContext.SaveChanges();
+            await dbContext.SaveChangesAsync();
 
             var newDto = new RolesDTO
             {
@@ -74,29 +74,29 @@ namespace EMS.API.Controllers
         }
 
         [HttpPut("{id}")]
-        public IActionResult UpdateRole([FromRoute] int id, [FromBody] UpdateRoleRequestDTO dto)
+        public async Task<IActionResult> UpdateRole([FromRoute] int id, [FromBody] UpdateRoleRequestDTO dto)
         {
-            var role = dbContext.Roles.FirstOrDefault(r => r.RoleID == id);
+            var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.RoleID == id);
             if (role == null)
                 return NotFound();
 
             role.RoleName = dto.RoleName;
             role.IsActive = dto.IsActive;
 
-            dbContext.SaveChanges();
+            await dbContext.SaveChangesAsync();
 
             return Ok(dto);
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteRole([FromRoute] int id)
+        public async Task<IActionResult> DeleteRole([FromRoute] int id)
         {
-            var role = dbContext.Roles.FirstOrDefault(r => r.RoleID == id);
+            var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.RoleID == id);
             if (role == null)
                 return NotFound();
 
             dbContext.Roles.Remove(role);
-            dbContext.SaveChanges();
+            await dbContext.SaveChangesAsync();
 
             return Ok();
         }

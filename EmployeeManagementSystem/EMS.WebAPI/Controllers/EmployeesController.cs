@@ -40,7 +40,7 @@ namespace EMS.API.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult GetEmployeeById([FromRoute] int id)
+        public async Task<IActionResult> GetEmployeeById([FromRoute] int id)
         {
             var emp = dbContext.Employees.FirstOrDefault(e => e.EmployeeID == id);
             if (emp == null)
@@ -58,7 +58,7 @@ namespace EMS.API.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateEmployee([FromBody] AddEmployeeRequestDTO dto)
+        public async Task<IActionResult> CreateEmployee([FromBody] AddEmployeeRequestDTO dto)
         {
             var emp = new Employees
             {
@@ -76,7 +76,7 @@ namespace EMS.API.Controllers
         }
 
         [HttpPut("{id}")]
-        public IActionResult UpdateEmployee([FromRoute] int id, [FromBody] UpdateEmployeeRequestDTO dto)
+        public async Task<IActionResult> UpdateEmployee([FromRoute] int id, [FromBody] UpdateEmployeeRequestDTO dto)
         {
             var emp = dbContext.Employees.FirstOrDefault(e => e.EmployeeID == id);
             if (emp == null)
@@ -93,7 +93,7 @@ namespace EMS.API.Controllers
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteEmployee([FromRoute] int id)
+        public async Task<IActionResult> DeleteEmployee([FromRoute] int id)
         {
             var emp = dbContext.Employees.FirstOrDefault(e => e.EmployeeID == id);
             if (emp == null)

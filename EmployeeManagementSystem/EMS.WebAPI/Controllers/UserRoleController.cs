@@ -1,6 +1,5 @@
 ﻿using EMS.Application.DTO;
 using EMS.Domain.Entities;
-using EMS.Domain.RepositoryInterface;
 using EMS.Infra.Data;
 using EMS.Infra.Data.Context;
 using Microsoft.AspNetCore.Mvc;
@@ -49,7 +48,7 @@ namespace EMS.API.Controllers
         }
 
         [HttpPost]
-        public IActionResult AssignRole([FromBody] AddUserRoleRequestDTO dto)
+        public async Task<IActionResult> AssignRole([FromBody] AddUserRoleRequestDTO dto)
         {
             var ur = new UserRole
             {
@@ -59,20 +58,20 @@ namespace EMS.API.Controllers
             };
 
             dbContext.UserRole.Add(ur);
-            dbContext.SaveChanges();
+            await dbContext.SaveChangesAsync();
 
             return Ok(dto);
         }
 
         [HttpDelete("{id}")]
-        public IActionResult RemoveUserRole([FromRoute] int id)
+        public async Task<IActionResult> RemoveUserRole([FromRoute] int id)
         {
-            var ur = dbContext.UserRole.FirstOrDefault(x => x.UserRoleID == id);
+            var ur = await dbContext.UserRole.FirstOrDefaultAsync(x => x.UserRoleID == id);
             if (ur == null)
                 return NotFound();
 
             dbContext.UserRole.Remove(ur);
-            dbContext.SaveChanges();
+            await dbContext.SaveChangesAsync();
 
             return Ok();
         }

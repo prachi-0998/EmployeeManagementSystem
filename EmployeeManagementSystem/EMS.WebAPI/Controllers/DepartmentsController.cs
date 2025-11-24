@@ -38,7 +38,7 @@ namespace EMS.API.Controllers
 
         // GET: api/departments/{id}
         [HttpGet("{id}")]
-        public IActionResult GetDepartmentById([FromRoute] int id)
+        public async Task<IActionResult> GetDepartmentById([FromRoute] int id)
         {
             var department = dbContext.Departments.FirstOrDefault(d => d.DepartmentID == id);
 
@@ -56,7 +56,7 @@ namespace EMS.API.Controllers
 
         // POST: api/departments
         [HttpPost]
-        public IActionResult CreateDepartment([FromBody] AddDepartmentRequestDTO dto)
+        public async Task<IActionResult> CreateDepartment([FromBody] AddDepartmentRequestDTO dto)
         {
             var department = new Departments
             {
@@ -79,7 +79,7 @@ namespace EMS.API.Controllers
 
         // PUT: api/departments/{id}
         [HttpPut("{id}")]
-        public IActionResult UpdateDepartment([FromRoute] int id, [FromBody] UpdateDepartmentRequestDTO dto)
+        public async Task<IActionResult> UpdateDepartment([FromRoute] int id, [FromBody] UpdateDepartmentRequestDTO dto)
         {
             var department = dbContext.Departments.FirstOrDefault(d => d.DepartmentID == id);
             if (department == null)
@@ -102,7 +102,7 @@ namespace EMS.API.Controllers
 
         // DELETE: api/departments/{id}
         [HttpDelete("{id}")]
-        public IActionResult DeleteDepartment([FromRoute] int id)
+        public async Task<IActionResult> DeleteDepartment([FromRoute] int id)
         {
             var department = dbContext.Departments.FirstOrDefault(d => d.DepartmentID == id);
             if (department == null)
