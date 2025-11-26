@@ -8,6 +8,7 @@ namespace EMS.Application.DTO
 {
     public class AddEmployeeRequestDTO
     {
+        public int EmployeeID { get; set; }
         public string FirstName { get; set; } = string.Empty;
 
         public string LastName { get; set; } = string.Empty;
