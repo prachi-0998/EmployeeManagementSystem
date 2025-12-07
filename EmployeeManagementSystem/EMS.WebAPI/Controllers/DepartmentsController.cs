@@ -25,7 +25,7 @@ namespace EMS.API.Controllers
 
         // GET: api/departments
         [HttpGet]
-        public async Task<IActionResult> GetAllDepartmentsAsync()
+        public async Task<ActionResult<List<DepartmentsDTO>>> GetAllDepartmentsAsync()
         {
             var deptsDomain = await deptRepository.GetAllDepartmentsAsync();
 
@@ -47,7 +47,7 @@ namespace EMS.API.Controllers
 
         // GET: api/departments/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetDepartmentByIDAsync([FromRoute] int id)
+        public async Task<ActionResult<DepartmentsDTO>> GetDepartmentByIDAsync([FromRoute] int id)
         {
             var department = await deptRepository.GetDepartmentByIDAsync(id);
 
@@ -65,7 +65,7 @@ namespace EMS.API.Controllers
 
         // POST: api/departments
         [HttpPost]
-        public async Task<IActionResult> CreateDepartmentAsync([FromBody] AddDepartmentRequestDTO dto)
+        public async Task<ActionResult<AddDepartmentRequestDTO>> CreateDepartmentAsync([FromBody] AddDepartmentRequestDTO dto)
         {
            
             var deptDomain = new Departments
@@ -77,25 +77,25 @@ namespace EMS.API.Controllers
             deptDomain = await deptRepository.CreateDepartmentAsync(deptDomain);
 
             //Mapping Domain model back to DTO
-            var newuserDto = new AddDepartmentRequestDTO
+            var newdeptDto = new AddDepartmentRequestDTO
             {
                 DepartmentID = deptDomain.DepartmentID,
                 DepartmentName = deptDomain.DepartmentName,
                 
             };
 
-            return CreatedAtAction(nameof(GetDepartmentByIDAsync), new { id = newuserDto.DepartmentID }, newuserDto);
+            return CreatedAtAction(nameof(GetDepartmentByIDAsync), new { id = newdeptDto.DepartmentID }, newdeptDto);
         }
 
         // PUT: api/departments/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateDepartmentAsync([FromRoute] int id, [FromBody] UpdateDepartmentRequestDTO dto)
+        public async Task<ActionResult<DepartmentsDTO>> UpdateDepartmentAsync([FromRoute] int id, [FromBody] UpdateDepartmentRequestDTO dto)
         {
             var deptDomain = new Departments
             {
                 DepartmentName = dto.DepartmentName,
             };
-            //var userDomain = await dbContext.Users.FirstOrDefaultAsync(u => u.UserID == id);
+
             deptDomain = await deptRepository.UpdateDepartmentAsync(id, deptDomain);
 
             if (deptDomain == null)
@@ -110,38 +110,20 @@ namespace EMS.API.Controllers
                 DepartmentName = deptDomain.DepartmentName
             };
             return Ok(deptDto);
-
-            var department = dbContext.Departments.FirstOrDefault(d => d.DepartmentID == id);
-            if (department == null)
-                return NotFound();
-
-            department.DepartmentName = dto.DepartmentName;
-            department.IsActive = dto.IsActive;
-
-            dbContext.SaveChanges();
-
-            var updatedDto = new DepartmentsDTO
-            {
-                DepartmentID = department.DepartmentID,
-                DepartmentName = department.DepartmentName,
-                IsActive = department.IsActive
-            };
-
-            return Ok(updatedDto);
         }
 
         // DELETE: api/departments/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteDepartmentAsync([FromRoute] int id)
+        public async Task<ActionResult<DepartmentsDTO>> DeleteDepartmentAsync([FromRoute] int id)
         {
             var deptDomain = await deptRepository.DeleteDepartmentAsync(id);
-            //Check if user exists
+            
             if (deptDomain == null)
             {
                 return NotFound();
             }
 
-            //returning deleted user back after Converting DomainModel to DTO
+         
             var deptDto = new DepartmentsDTO
             {
                 DepartmentID = deptDomain.DepartmentID,

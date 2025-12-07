@@ -1,7 +1,8 @@
 ﻿using EMS.Application.DTO;
 using EMS.Domain.Entities;
-using EMS.Infra.Data.Context;
+using EMS.Domain.Repository;
 using EMS.Infra.Data;
+using EMS.Infra.Data.Context;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
@@ -13,32 +14,41 @@ namespace EMS.API.Controllers
     public class RolesController : ControllerBase
     {
         private readonly EMSDbContext dbContext;
-       
+        private readonly IRoleRepository roleRepository;
 
-        public RolesController(EMSDbContext dbContext)
+
+        public RolesController(EMSDbContext dbContext, IRoleRepository roleRepository)
         {
             this.dbContext = dbContext;
+            this.roleRepository = roleRepository;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAllRolesAsync()
+        public async Task<ActionResult<List<RolesDTO>>> GetAllRolesAsync()
         {
-            var roles = await dbContext.Roles.ToListAsync();
+            var roles = await roleRepository.GetAllRolesAsync();
 
-            var rolesDto = roles.Select(r => new RolesDTO
+            var rolesDto = new List<RolesDTO>();
+
+            foreach (var role in roles)
             {
-                RoleID = r.RoleID,
-                RoleName = r.RoleName,
-                IsActive = r.IsActive
-            }).ToList();
+                var roleDto = new RolesDTO
+                {
+                    RoleID = role.RoleID,
+                    RoleName = role.RoleName,
+                    IsActive = role.IsActive
+                };
+                rolesDto.Add(roleDto);
+            }
 
             return Ok(rolesDto);
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetRoleById([FromRoute] int id)
+        public async Task<ActionResult<RolesDTO>> GetRoleByIDAsync([FromRoute] int id)
         {
-            var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.RoleID == id);
+            var role = await roleRepository.GetRoleByIDAsync(id);
+
             if (role == null)
                 return NotFound();
 
@@ -52,53 +62,69 @@ namespace EMS.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateRole([FromBody] AddRoleRequestDTO dto)
+        public async Task<ActionResult<AddRoleRequestDTO>> CreateRoleAsync([FromBody] AddRoleRequestDTO dto)
         {
-            var role = new Roles
+            var roleDomain = new Roles
             {
-                RoleName = dto.RoleName,
-                IsActive = true
+                RoleName = dto.RoleName
             };
 
-            dbContext.Roles.Add(role);
-            await dbContext.SaveChangesAsync();
 
-            var newDto = new RolesDTO
+            roleDomain = await roleRepository.CreateRoleAsync(roleDomain);
+
+            //Mapping Domain model back to DTO
+            var newRoleDto = new AddRoleRequestDTO
             {
-                RoleID = role.RoleID,
-                RoleName = role.RoleName,
-                IsActive = role.IsActive
+                RoleID = dto.RoleID,
+                RoleName = roleDomain.RoleName,
+                IsActive = roleDomain.IsActive
+
             };
 
-            return CreatedAtAction(nameof(GetRoleById), new { id = newDto.RoleID }, newDto);
+            return CreatedAtAction(nameof(GetRoleByIDAsync), new { id = newRoleDto.RoleID }, newRoleDto);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateRole([FromRoute] int id, [FromBody] UpdateRoleRequestDTO dto)
+        public async Task<ActionResult<RolesDTO>> UpdateRoleAsync([FromRoute] int id, [FromBody] UpdateRoleRequestDTO dto)
         {
-            var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.RoleID == id);
-            if (role == null)
+            var roleDomain = new Roles
+            {
+                RoleName = dto.RoleName,
+            };
+
+            roleDomain = await roleRepository.UpdateRoleAsync(id, roleDomain);
+
+            if (roleDomain == null)
+            {
                 return NotFound();
+            }
 
-            role.RoleName = dto.RoleName;
-            role.IsActive = dto.IsActive;
-
-            await dbContext.SaveChangesAsync();
-
-            return Ok(dto);
+            //Convert DomainModel to DTO
+            var roleDto = new RolesDTO
+            {
+                RoleID = roleDomain.RoleID,
+                RoleName = roleDomain.RoleName
+            };
+            return Ok(roleDto);
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteRole([FromRoute] int id)
+        public async Task<ActionResult<RolesDTO>> DeleteRole([FromRoute] int id)
         {
-            var role = await dbContext.Roles.FirstOrDefaultAsync(r => r.RoleID == id);
-            if (role == null)
+            var roleDomain = await roleRepository.DeleteRoleAsync(id);
+            
+            if (roleDomain == null)
+            {
                 return NotFound();
+            }
 
-            dbContext.Roles.Remove(role);
-            await dbContext.SaveChangesAsync();
+            var roleDto = new RolesDTO
+            {
+                RoleID = roleDomain.RoleID,
+                RoleName = roleDomain.RoleName
 
-            return Ok();
+            };
+            return Ok(roleDto);
         }
     }
 }

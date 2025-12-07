@@ -1,5 +1,6 @@
 ﻿using EMS.Application.DTO;
 using EMS.Domain.Entities;
+using EMS.Domain.Repository;
 using EMS.Infra.Data;
 using EMS.Infra.Data.Context;
 using Microsoft.AspNetCore.Mvc;
@@ -12,18 +13,19 @@ namespace EMS.API.Controllers
     public class UserRoleController : ControllerBase
     {
         private readonly EMSDbContext dbContext;
+        private readonly IUserRoleRepository urRepository;
 
-        public UserRoleController(EMSDbContext dbContext)
+        public UserRoleController(EMSDbContext dbContext, IUserRoleRepository urRepository)
         {
             this.dbContext = dbContext;
-            
+            this.urRepository = urRepository;
+
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAllUserRolesAsync()
+        public async Task<ActionResult<List<UserRoleDTO>>> GetAllUserRoleAsync()
         {
-
-           var userRolesDomain = await dbContext.UserRole.ToListAsync();
+            var userRolesDomain = await urRepository.GetAllUserRoleAsync();
 
             //Map Domain Models to DTOs
             var userRolesDto = new List<UserRoleDTO>();
@@ -47,33 +49,72 @@ namespace EMS.API.Controllers
             return Ok(userRolesDto);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> AssignRole([FromBody] AddUserRoleRequestDTO dto)
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<UserRoleDTO>> GetUserRoleByIDAsync([FromRoute] int id)
         {
-            var ur = new UserRole
+            var userRole = await urRepository.GetUserRoleByIDAsync(id);
+
+            if (userRole == null)
+                return NotFound();
+
+            var dto = new UserRoleDTO
             {
-                UserID = dto.UserID,
-                RoleID = dto.RoleID,
-                IsActive = true
+                UserRoleID = userRole.UserRoleID,
+                UserID = userRole.UserID,
+                RoleID = userRole.RoleID,   
+                IsActive = userRole.IsActive
             };
-
-            dbContext.UserRole.Add(ur);
-            await dbContext.SaveChangesAsync();
-
             return Ok(dto);
         }
 
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> RemoveUserRole([FromRoute] int id)
+        [HttpPost]
+        public async Task<ActionResult<UserRoleDTO>> UpdateUserRoleAsync([FromRoute] int id, [FromBody] AddUserRoleRequestDTO dto)
         {
-            var ur = await dbContext.UserRole.FirstOrDefaultAsync(x => x.UserRoleID == id);
-            if (ur == null)
+            var urDomain = new UserRole
+            {
+                UserID = dto.UserID,
+                RoleID = dto.RoleID,
+                IsActive = dto.IsActive
+            };
+            
+            urDomain = await urRepository.UpdateUserRoleAsync(id, urDomain);
+
+            if (urDomain == null)
+            {
                 return NotFound();
+            }
 
-            dbContext.UserRole.Remove(ur);
-            await dbContext.SaveChangesAsync();
+            //Convert DomainModel to DTO
+            var urDto = new UserRoleDTO
+            {
+                UserRoleID = urDomain.UserRoleID,
+                UserID = urDomain.UserID,
+                RoleID = urDomain.RoleID,
+                IsActive = urDomain.IsActive
+            };
+            return Ok(urDto);
+        }
 
-            return Ok();
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<UserRoleDTO>> DeleteUserRoleAsync([FromRoute] int id)
+        {
+            var urDomain = await urRepository.DeleteUserRoleAsync(id);
+
+            if (urDomain == null)
+            {
+                return NotFound();
+            }
+
+
+            var urDto = new UserRoleDTO
+            {
+                UserRoleID = urDomain.UserRoleID,
+                UserID = urDomain.UserID,
+                RoleID = urDomain.RoleID,
+
+            };
+            return Ok(urDto);
         }
     }
 }

@@ -28,5 +28,7 @@ namespace EMS.Application.DTO
         public int? ManagerID { get; set; }
 
         public bool IsActive { get; set; }
+
+        public int UserID { get; set; }
     }
 }

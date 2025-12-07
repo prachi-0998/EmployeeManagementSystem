@@ -1,9 +1,11 @@
 ﻿using EMS.Application.DTO;
 using EMS.Domain.Entities;
-using EMS.Infra.Data.Context;
+using EMS.Domain.Repository;
 using EMS.Infra.Data;
+using EMS.Infra.Data.Context;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
 
 namespace EMS.API.Controllers
 {
@@ -12,37 +14,51 @@ namespace EMS.API.Controllers
     public class EmployeesController : ControllerBase
     {
         private readonly EMSDbContext dbContext;
-        
+        private readonly IEmployeeRepository empRepository;
 
-        public EmployeesController(EMSDbContext dbContext)
+
+        public EmployeesController(EMSDbContext dbContext, IEmployeeRepository empRepository)
         {
             this.dbContext = dbContext;
+            this.empRepository = empRepository;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAllEmployeesAsync()
+        public async Task<ActionResult<List<EmployeesDTO>>> GetAllEmployeesAsync()
         {
-            var employees = await dbContext.Employees.ToListAsync();
+            var empsDomain = await empRepository.GetAllEmployeesAsync();
 
-            var employeesDto = employees.Select(e => new EmployeesDTO
+            var empsDto = new List<EmployeesDTO>();
+
+            foreach (var empDomain in empsDomain)
             {
-                EmployeeID = e.EmployeeID,
-                FirstName = e.FirstName,
-                LastName = e.LastName,
-                ContactNo = e.ContactNo,
-                DepartmentID = e.DepartmentID,
-                RoleID = e.RoleID,
-                ManagerID = e.ManagerID,
-                IsActive = e.IsActive
-            }).ToList();
+                var empDto = new EmployeesDTO
+                {
+                    EmployeeID = empDomain.EmployeeID,
+                    FirstName = empDomain.FirstName,
+                    LastName = empDomain.LastName,
+                    ContactNo = empDomain.ContactNo,
+                    DateOfBirth = empDomain.DateOfBirth,
+                    DepartmentID = empDomain.DepartmentID,
+                    RoleID = empDomain.RoleID,
+                    HireDate = empDomain.HireDate,
+                    Salary = empDomain.Salary,
+                    ManagerID = empDomain.ManagerID,
+                    IsActive = empDomain.IsActive,
+                    UserID = empDomain.UserID
+                };
+                empsDto.Add(empDto);
+            }
 
-            return Ok(employeesDto);
+            return Ok(empsDto);
+
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetEmployeeById([FromRoute] int id)
+        public async Task<ActionResult<EmployeesDTO>> GetEmployeeByIDAsync([FromRoute] int id)
         {
-            var emp = dbContext.Employees.FirstOrDefault(e => e.EmployeeID == id);
+            var emp = await empRepository.GetEmployeeByIDAsync(id);
+
             if (emp == null)
                 return NotFound();
 
@@ -51,58 +67,117 @@ namespace EMS.API.Controllers
                 EmployeeID = emp.EmployeeID,
                 FirstName = emp.FirstName,
                 LastName = emp.LastName,
+                ContactNo = emp.ContactNo,
+                DateOfBirth = emp.DateOfBirth,
                 DepartmentID = emp.DepartmentID,
-                RoleID = emp.RoleID
+                RoleID = emp.RoleID,
+                HireDate = emp.HireDate,
+                Salary = emp.Salary,
+                ManagerID = emp.ManagerID,
+                IsActive = emp.IsActive,
+                UserID = emp.UserID
             };
             return Ok(dto);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateEmployee([FromBody] AddEmployeeRequestDTO dto)
+        public async Task<ActionResult<AddEmployeeRequestDTO>> CreateEmployeeAsync([FromBody] AddEmployeeRequestDTO dto)
         {
-            var emp = new Employees
+            var empDomain = new Employees
+            {
+                EmployeeID = dto.EmployeeID,
+                FirstName = dto.FirstName,
+                LastName = dto.LastName,
+                ContactNo = dto.ContactNo,
+                DateOfBirth = dto.DateOfBirth,
+                DepartmentID = dto.DepartmentID,
+                RoleID = dto.RoleID,
+                HireDate = dto.HireDate,
+                Salary = dto.Salary,
+                ManagerID = dto.ManagerID,
+                IsActive = dto.IsActive,
+                UserID = dto.UserID
+            };
+
+
+            empDomain = await empRepository.CreateEmployeeAsync(empDomain);
+
+            //Mapping Domain model back to DTO
+            var newempDto = new AddEmployeeRequestDTO
+            {
+                EmployeeID = empDomain.EmployeeID,
+                FirstName = empDomain.FirstName,
+                LastName = empDomain.LastName,
+                ContactNo = empDomain.ContactNo,
+                DateOfBirth = empDomain.DateOfBirth,
+                DepartmentID = empDomain.DepartmentID,
+                RoleID = empDomain.RoleID,
+                HireDate = empDomain.HireDate,
+                Salary = empDomain.Salary,
+                ManagerID = empDomain.ManagerID,
+                IsActive = empDomain.IsActive,
+                UserID = empDomain.UserID
+
+            };
+
+            return CreatedAtAction(nameof(GetEmployeeByIDAsync), new { id = newempDto.EmployeeID }, newempDto);
+
+            
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult<EmployeesDTO>> UpdateEmployeeAsync([FromRoute] int id, [FromBody] UpdateEmployeeRequestDTO dto)
+        {
+            var empDomain = new Employees
             {
                 FirstName = dto.FirstName,
                 LastName = dto.LastName,
                 DepartmentID = dto.DepartmentID,
                 RoleID = dto.RoleID,
-                IsActive = true
+                IsActive = dto.IsActive
             };
+            
+           ;
+            empDomain = await empRepository.UpdateEmployeeAsync(id, empDomain);
 
-            dbContext.Employees.Add(emp);
-            dbContext.SaveChanges();
-
-            return CreatedAtAction(nameof(GetEmployeeById), new { id = emp.EmployeeID }, dto);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateEmployee([FromRoute] int id, [FromBody] UpdateEmployeeRequestDTO dto)
-        {
-            var emp = dbContext.Employees.FirstOrDefault(e => e.EmployeeID == id);
-            if (emp == null)
+            if (empDomain == null)
+            {
                 return NotFound();
+            }
 
-            emp.FirstName = dto.FirstName;
-            emp.LastName = dto.LastName;
-            emp.DepartmentID = dto.DepartmentID;
-            emp.RoleID = dto.RoleID;
+            //Convert DomainModel to DTO
+            var empDto = new EmployeesDTO
+            {
+                FirstName = empDomain.FirstName,
+                LastName = empDomain.LastName,
+                DepartmentID = empDomain.DepartmentID,
+                RoleID = empDomain.RoleID,
+                IsActive = empDomain.IsActive
+            };
+            return Ok(empDto);
 
-            dbContext.SaveChanges();
-
-            return Ok(dto);
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteEmployee([FromRoute] int id)
+        public async Task<ActionResult<EmployeesDTO>> DeleteEmployeeAsync([FromRoute] int id)
         {
-            var emp = dbContext.Employees.FirstOrDefault(e => e.EmployeeID == id);
-            if (emp == null)
+            var empDomain = await empRepository.DeleteEmployeeAsync(id);
+            //Check if user exists
+            if (empDomain == null)
+            {
                 return NotFound();
+            }
 
-            dbContext.Employees.Remove(emp);
-            dbContext.SaveChanges();
+            //returning deleted user back after Converting DomainModel to DTO
+            var empDto = new EmployeesDTO
+            {
+                FirstName = empDomain.FirstName,
+                LastName = empDomain.LastName,
+                DepartmentID = empDomain.DepartmentID,
+                RoleID = empDomain.RoleID
 
-            return Ok();
+            };
+            return Ok(empDto);
         }
     }
 }

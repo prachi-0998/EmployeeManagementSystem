@@ -36,18 +36,18 @@ namespace EMS.Infra.Data.Repository
 
         public async Task<Users?> UpdateUserAsync(int id, Users user)
         {
-            var existingRegion = await dbContext.Users.FirstOrDefaultAsync(x => x.UserID == id);
+            var existingUser = await dbContext.Users.FirstOrDefaultAsync(x => x.UserID == id);
 
-            if (existingRegion == null)
+            if (existingUser == null)
             {
                 return null;
             }
-            existingRegion.UserName = user.UserName;
-            existingRegion.EmailID = user.EmailID;
+            existingUser.UserName = user.UserName;
+            existingUser.EmailID = user.EmailID;
 
             await dbContext.SaveChangesAsync();
 
-            return existingRegion;
+            return existingUser;
         }
 
         public async Task<Users?> DeleteAsync(int id)
