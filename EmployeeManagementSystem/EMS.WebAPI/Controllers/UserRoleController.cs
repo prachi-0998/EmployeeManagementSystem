@@ -3,6 +3,7 @@ using EMS.Domain.Entities;
 using EMS.Domain.Repository;
 using EMS.Infra.Data;
 using EMS.Infra.Data.Context;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ namespace EMS.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UserRoleController : ControllerBase
     {
         private readonly EMSDbContext dbContext;

@@ -6,11 +6,13 @@ using EMS.Infra.Data.Context;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
+using Microsoft.AspNetCore.Authorization;
 
 namespace EMS.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class EmployeesController : ControllerBase
     {
         private readonly EMSDbContext dbContext;
