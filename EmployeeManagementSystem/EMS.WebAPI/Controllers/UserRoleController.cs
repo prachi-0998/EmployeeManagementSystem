@@ -69,6 +69,31 @@ namespace EMS.API.Controllers
         }
 
         [HttpPost]
+        public async Task<ActionResult<AddUserRoleRequestDTO>> CreateUserRoleAsync([FromBody] AddUserRoleRequestDTO dto)
+        {
+
+            var urDomain = new UserRole
+            {
+                UserID = dto.UserID,
+                RoleID = dto.RoleID,
+                IsActive = dto.IsActive
+            };
+            
+            urDomain = await urRepository.CreateUserRoleAsync(urDomain);
+
+            //Mapping Domain model back to DTO
+            var newurDto = new AddUserRoleRequestDTO
+            {
+                UserID = urDomain.UserID,
+                RoleID = urDomain.RoleID,
+                IsActive = urDomain.IsActive
+
+            };
+
+            return CreatedAtAction(nameof(GetUserRoleByIDAsync), new { id = newurDto.UserID }, newurDto);
+        }
+
+        [HttpPut("{id}")]
         public async Task<ActionResult<UserRoleDTO>> UpdateUserRoleAsync([FromRoute] int id, [FromBody] AddUserRoleRequestDTO dto)
         {
             var urDomain = new UserRole
