@@ -20,6 +20,13 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 
+// Add AutoMapper (manual registration - works without deprecated packages)
+var mapperConfig = new MapperConfiguration(cfg =>
+{
+    cfg.AddProfile<AutoMapperProfiles>();
+});
+builder.Services.AddSingleton(mapperConfig.CreateMapper());
+
 // Configure Swagger with JWT support
 builder.Services.AddSwaggerGen(options =>
 {

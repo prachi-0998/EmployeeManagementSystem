@@ -1,5 +1,7 @@
-﻿using EMS.Application.DTO;
+using AutoMapper;
+using EMS.Application.DTO;
 using EMS.Domain.Entities;
+using EMS.Domain.Exceptions;
 using EMS.Domain.Repository;
 using EMS.Infra.Data;
 using EMS.Infra.Data.Context;
@@ -16,124 +18,179 @@ namespace EMS.API.Controllers
     {
         private readonly EMSDbContext dbContext;
         private readonly IDepartmentRepository deptRepository;
+        private readonly IMapper mapper;
+        private readonly ILogger<DepartmentsController> _logger;
 
 
-        public DepartmentsController(EMSDbContext dbContext, IDepartmentRepository deptRepository)
+        public DepartmentsController(EMSDbContext dbContext, IDepartmentRepository deptRepository, IMapper mapper, ILogger<DepartmentsController> logger)
         {
             this.dbContext = dbContext;
             this.deptRepository = deptRepository;
-
+            this.mapper = mapper;
+            this._logger = logger;
         }
 
         // GET: api/departments
         [HttpGet]
         public async Task<ActionResult<List<DepartmentsDTO>>> GetAllDepartmentsAsync()
         {
-            var deptsDomain = await deptRepository.GetAllDepartmentsAsync();
-
-            var deptsDto = new List<DepartmentsDTO>();
-
-            foreach (var deptDomain in deptsDomain)
+            try
             {
-                var deptDto = new DepartmentsDTO
-                {
-                    DepartmentID = deptDomain.DepartmentID,
-                    DepartmentName = deptDomain.DepartmentName,
-                    IsActive = deptDomain.IsActive
-                };
-                deptsDto.Add(deptDto);
+                _logger.LogInformation("Fetching all departments");
+                var deptsDomain = await deptRepository.GetAllDepartmentsAsync();
+                var deptsDto = mapper.Map<List<DepartmentsDTO>>(deptsDomain);
+                _logger.LogInformation("Successfully retrieved {Count} departments", deptsDto.Count);
+                return Ok(deptsDto);
             }
-            
-            return Ok(deptsDto);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching all departments");
+                throw;
+            }
         }
 
         // GET: api/departments/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<DepartmentsDTO>> GetDepartmentByIDAsync([FromRoute] int id)
         {
-            var department = await deptRepository.GetDepartmentByIDAsync(id);
-
-            if (department == null)
-                return NotFound();
-
-            var dto = new DepartmentsDTO
+            try
             {
-                DepartmentID = department.DepartmentID,
-                DepartmentName = department.DepartmentName,
-                IsActive = department.IsActive
-            };
-            return Ok(dto);
+                _logger.LogInformation("Fetching department with ID: {DepartmentId}", id);
+                var department = await deptRepository.GetDepartmentByIDAsync(id);
+
+                if (department == null)
+                {
+                    _logger.LogWarning("Department with ID: {DepartmentId} not found", id);
+                    throw new NotFoundException("Department", id);
+                }
+
+                var dto = mapper.Map<DepartmentsDTO>(department);
+                _logger.LogInformation("Successfully retrieved department with ID: {DepartmentId}", id);
+                return Ok(dto);
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching department with ID: {DepartmentId}", id);
+                throw;
+            }
         }
 
         // POST: api/departments
         [HttpPost]
         public async Task<ActionResult<AddDepartmentRequestDTO>> CreateDepartmentAsync([FromBody] AddDepartmentRequestDTO dto)
         {
-           
-            var deptDomain = new Departments
+            try
             {
-                DepartmentName = dto.DepartmentName
-            };
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state for creating department");
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
+                }
 
-          
-            deptDomain = await deptRepository.CreateDepartmentAsync(deptDomain);
+                _logger.LogInformation("Creating new department: {DepartmentName}", dto.DepartmentName);
+                var deptDomain = mapper.Map<Departments>(dto);
+                deptDomain = await deptRepository.CreateDepartmentAsync(deptDomain);
 
-            //Mapping Domain model back to DTO
-            var newdeptDto = new AddDepartmentRequestDTO
+                var newDeptDto = mapper.Map<DepartmentsDTO>(deptDomain);
+                _logger.LogInformation("Successfully created department with ID: {DepartmentId}", newDeptDto.DepartmentID);
+                return CreatedAtAction(nameof(GetDepartmentByIDAsync), new { id = newDeptDto.DepartmentID }, newDeptDto);
+            }
+            catch (ValidationException)
             {
-                DepartmentID = deptDomain.DepartmentID,
-                DepartmentName = deptDomain.DepartmentName,
-                
-            };
-
-            return CreatedAtAction(nameof(GetDepartmentByIDAsync), new { id = newdeptDto.DepartmentID }, newdeptDto);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while creating department");
+                throw;
+            }
         }
 
         // PUT: api/departments/{id}
         [HttpPut("{id}")]
         public async Task<ActionResult<DepartmentsDTO>> UpdateDepartmentAsync([FromRoute] int id, [FromBody] UpdateDepartmentRequestDTO dto)
         {
-            var deptDomain = new Departments
+            try
             {
-                DepartmentName = dto.DepartmentName,
-            };
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state for updating department with ID: {DepartmentId}", id);
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
+                }
 
-            deptDomain = await deptRepository.UpdateDepartmentAsync(id, deptDomain);
+                _logger.LogInformation("Updating department with ID: {DepartmentId}", id);
+                var deptDomain = mapper.Map<Departments>(dto);
+                deptDomain = await deptRepository.UpdateDepartmentAsync(id, deptDomain);
 
-            if (deptDomain == null)
-            {
-                return NotFound();
+                if (deptDomain == null)
+                {
+                    _logger.LogWarning("Department with ID: {DepartmentId} not found for update", id);
+                    throw new NotFoundException("Department", id);
+                }
+
+                var deptDto = mapper.Map<DepartmentsDTO>(deptDomain);
+                _logger.LogInformation("Successfully updated department with ID: {DepartmentId}", id);
+                return Ok(deptDto);
             }
-
-            //Convert DomainModel to DTO
-            var deptDto = new DepartmentsDTO
+            catch (NotFoundException)
             {
-                DepartmentID = deptDomain.DepartmentID,
-                DepartmentName = deptDomain.DepartmentName
-            };
-            return Ok(deptDto);
+                throw;
+            }
+            catch (ValidationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while updating department with ID: {DepartmentId}", id);
+                throw;
+            }
         }
 
         // DELETE: api/departments/{id}
         [HttpDelete("{id}")]
         public async Task<ActionResult<DepartmentsDTO>> DeleteDepartmentAsync([FromRoute] int id)
         {
-            var deptDomain = await deptRepository.DeleteDepartmentAsync(id);
-            
-            if (deptDomain == null)
+            try
             {
-                return NotFound();
-            }
+                _logger.LogInformation("Deleting department with ID: {DepartmentId}", id);
+                var deptDomain = await deptRepository.DeleteDepartmentAsync(id);
+                
+                if (deptDomain == null)
+                {
+                    _logger.LogWarning("Department with ID: {DepartmentId} not found for deletion", id);
+                    throw new NotFoundException("Department", id);
+                }
 
-         
-            var deptDto = new DepartmentsDTO
+                var deptDto = mapper.Map<DepartmentsDTO>(deptDomain);
+                _logger.LogInformation("Successfully deleted department with ID: {DepartmentId}", id);
+                return Ok(deptDto);
+            }
+            catch (NotFoundException)
             {
-                DepartmentID = deptDomain.DepartmentID,
-                DepartmentName = deptDomain.DepartmentName
-               
-            };
-            return Ok(deptDto);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting department with ID: {DepartmentId}", id);
+                throw;
+            }
         }
     }
 }
-

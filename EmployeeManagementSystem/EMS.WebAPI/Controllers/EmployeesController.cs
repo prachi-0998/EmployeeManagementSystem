@@ -1,12 +1,14 @@
-﻿using EMS.Application.DTO;
+﻿using AutoMapper;
+using EMS.Application.DTO;
 using EMS.Domain.Entities;
+using EMS.Domain.Exceptions;
 using EMS.Domain.Repository;
 using EMS.Infra.Data;
 using EMS.Infra.Data.Context;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
-using Microsoft.AspNetCore.Authorization;
 
 namespace EMS.API.Controllers
 {
@@ -17,169 +19,170 @@ namespace EMS.API.Controllers
     {
         private readonly EMSDbContext dbContext;
         private readonly IEmployeeRepository empRepository;
+        private readonly IMapper mapper;
+        private readonly ILogger<EmployeesController> _logger;
 
 
-        public EmployeesController(EMSDbContext dbContext, IEmployeeRepository empRepository)
+        public EmployeesController(EMSDbContext dbContext, IEmployeeRepository empRepository, IMapper mapper, ILogger<EmployeesController> logger)
         {
             this.dbContext = dbContext;
             this.empRepository = empRepository;
+            this.mapper = mapper;
+            this._logger = logger;
         }
 
         [HttpGet]
         public async Task<ActionResult<List<EmployeesDTO>>> GetAllEmployeesAsync()
         {
-            var empsDomain = await empRepository.GetAllEmployeesAsync();
-
-            var empsDto = new List<EmployeesDTO>();
-
-            foreach (var empDomain in empsDomain)
+            try
             {
-                var empDto = new EmployeesDTO
-                {
-                    EmployeeID = empDomain.EmployeeID,
-                    FirstName = empDomain.FirstName,
-                    LastName = empDomain.LastName,
-                    ContactNo = empDomain.ContactNo,
-                    DateOfBirth = empDomain.DateOfBirth,
-                    DepartmentID = empDomain.DepartmentID,
-                    RoleID = empDomain.RoleID,
-                    HireDate = empDomain.HireDate,
-                    Salary = empDomain.Salary,
-                    ManagerID = empDomain.ManagerID,
-                    IsActive = empDomain.IsActive,
-                    UserID = empDomain.UserID
-                };
-                empsDto.Add(empDto);
+                _logger.LogInformation("Fetching all employees");
+                var empsDomain = await empRepository.GetAllEmployeesAsync();
+                var empsDto = mapper.Map<List<EmployeesDTO>>(empsDomain);
+                _logger.LogInformation("Successfully retrieved {Count} employees", empsDto.Count);
+                return Ok(empsDto);
             }
-
-            return Ok(empsDto);
-
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching all employees");
+                throw;
+            }
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<EmployeesDTO>> GetEmployeeByIDAsync([FromRoute] int id)
         {
-            var emp = await empRepository.GetEmployeeByIDAsync(id);
-
-            if (emp == null)
-                return NotFound();
-
-            var dto = new EmployeesDTO
+            try
             {
-                EmployeeID = emp.EmployeeID,
-                FirstName = emp.FirstName,
-                LastName = emp.LastName,
-                ContactNo = emp.ContactNo,
-                DateOfBirth = emp.DateOfBirth,
-                DepartmentID = emp.DepartmentID,
-                RoleID = emp.RoleID,
-                HireDate = emp.HireDate,
-                Salary = emp.Salary,
-                ManagerID = emp.ManagerID,
-                IsActive = emp.IsActive,
-                UserID = emp.UserID
-            };
-            return Ok(dto);
+                _logger.LogInformation("Fetching employee with ID: {EmployeeId}", id);
+                var emp = await empRepository.GetEmployeeByIDAsync(id);
+
+                if (emp == null)
+                {
+                    _logger.LogWarning("Employee with ID: {EmployeeId} not found", id);
+                    throw new NotFoundException("Employee", id);
+                }
+
+                var dto = mapper.Map<EmployeesDTO>(emp);
+                _logger.LogInformation("Successfully retrieved employee with ID: {EmployeeId}", id);
+                return Ok(dto);
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching employee with ID: {EmployeeId}", id);
+                throw;
+            }
         }
 
         [HttpPost]
         public async Task<ActionResult<AddEmployeeRequestDTO>> CreateEmployeeAsync([FromBody] AddEmployeeRequestDTO dto)
         {
-            var empDomain = new Employees
+            try
             {
-                EmployeeID = dto.EmployeeID,
-                FirstName = dto.FirstName,
-                LastName = dto.LastName,
-                ContactNo = dto.ContactNo,
-                DateOfBirth = dto.DateOfBirth,
-                DepartmentID = dto.DepartmentID,
-                RoleID = dto.RoleID,
-                HireDate = dto.HireDate,
-                Salary = dto.Salary,
-                ManagerID = dto.ManagerID,
-                IsActive = dto.IsActive,
-                UserID = dto.UserID
-            };
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state for creating employee");
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
+                }
 
+                _logger.LogInformation("Creating new employee: {FirstName} {LastName}", dto.FirstName, dto.LastName);
+                var empDomain = mapper.Map<Employees>(dto);
+                empDomain = await empRepository.CreateEmployeeAsync(empDomain);
 
-            empDomain = await empRepository.CreateEmployeeAsync(empDomain);
-
-            //Mapping Domain model back to DTO
-            var newempDto = new AddEmployeeRequestDTO
+                var newempDto = mapper.Map<EmployeesDTO>(empDomain);
+                _logger.LogInformation("Successfully created employee with ID: {EmployeeId}", newempDto.EmployeeID);
+                return CreatedAtAction(nameof(GetEmployeeByIDAsync), new { id = newempDto.EmployeeID }, newempDto);
+            }
+            catch (Exception ex)
             {
-                EmployeeID = empDomain.EmployeeID,
-                FirstName = empDomain.FirstName,
-                LastName = empDomain.LastName,
-                ContactNo = empDomain.ContactNo,
-                DateOfBirth = empDomain.DateOfBirth,
-                DepartmentID = empDomain.DepartmentID,
-                RoleID = empDomain.RoleID,
-                HireDate = empDomain.HireDate,
-                Salary = empDomain.Salary,
-                ManagerID = empDomain.ManagerID,
-                IsActive = empDomain.IsActive,
-                UserID = empDomain.UserID
-
-            };
-
-            return CreatedAtAction(nameof(GetEmployeeByIDAsync), new { id = newempDto.EmployeeID }, newempDto);
-
-            
+                _logger.LogError(ex, "Error occurred while creating employee");
+                throw;
+            }
         }
 
         [HttpPut("{id}")]
         public async Task<ActionResult<EmployeesDTO>> UpdateEmployeeAsync([FromRoute] int id, [FromBody] UpdateEmployeeRequestDTO dto)
         {
-            var empDomain = new Employees
+            try
             {
-                FirstName = dto.FirstName,
-                LastName = dto.LastName,
-                DepartmentID = dto.DepartmentID,
-                RoleID = dto.RoleID,
-                IsActive = dto.IsActive
-            };
-            
-           ;
-            empDomain = await empRepository.UpdateEmployeeAsync(id, empDomain);
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state for updating employee with ID: {EmployeeId}", id);
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
+                }
 
-            if (empDomain == null)
-            {
-                return NotFound();
+                _logger.LogInformation("Updating employee with ID: {EmployeeId}", id);
+                var empDomain = mapper.Map<Employees>(dto);
+                empDomain = await empRepository.UpdateEmployeeAsync(id, empDomain);
+
+                if (empDomain == null)
+                {
+                    _logger.LogWarning("Employee with ID: {EmployeeId} not found for update", id);
+                    throw new NotFoundException("Employee", id);
+                }
+
+                var empDto = mapper.Map<EmployeesDTO>(empDomain);
+                _logger.LogInformation("Successfully updated employee with ID: {EmployeeId}", id);
+                return Ok(empDto);
             }
-
-            //Convert DomainModel to DTO
-            var empDto = new EmployeesDTO
+            catch (NotFoundException)
             {
-                FirstName = empDomain.FirstName,
-                LastName = empDomain.LastName,
-                DepartmentID = empDomain.DepartmentID,
-                RoleID = empDomain.RoleID,
-                IsActive = empDomain.IsActive
-            };
-            return Ok(empDto);
-
+                throw;
+            }
+            catch (ValidationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while updating employee with ID: {EmployeeId}", id);
+                throw;
+            }
         }
 
         [HttpDelete("{id}")]
         public async Task<ActionResult<EmployeesDTO>> DeleteEmployeeAsync([FromRoute] int id)
         {
-            var empDomain = await empRepository.DeleteEmployeeAsync(id);
-            //Check if user exists
-            if (empDomain == null)
+            try
             {
-                return NotFound();
+                _logger.LogInformation("Deleting employee with ID: {EmployeeId}", id);
+                var empDomain = await empRepository.DeleteEmployeeAsync(id);
+
+                if (empDomain == null)
+                {
+                    _logger.LogWarning("Employee with ID: {EmployeeId} not found for deletion", id);
+                    throw new NotFoundException("Employee", id);
+                }
+
+                var empDto = mapper.Map<EmployeesDTO>(empDomain);
+                _logger.LogInformation("Successfully deleted employee with ID: {EmployeeId}", id);
+                return Ok(empDto);
             }
-
-            //returning deleted user back after Converting DomainModel to DTO
-            var empDto = new EmployeesDTO
+            catch (NotFoundException)
             {
-                FirstName = empDomain.FirstName,
-                LastName = empDomain.LastName,
-                DepartmentID = empDomain.DepartmentID,
-                RoleID = empDomain.RoleID
-
-            };
-            return Ok(empDto);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting employee with ID: {EmployeeId}", id);
+                throw;
+            }
         }
     }
 }

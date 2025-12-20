@@ -1,5 +1,6 @@
-﻿using EMS.Application.DTO;
+using EMS.Application.DTO;
 using EMS.Domain.Entities;
+using EMS.Domain.Exceptions;
 using EMS.Domain.Repository;
 using EMS.Infra.Data;
 using EMS.Infra.Data.Context;
@@ -17,116 +18,215 @@ namespace EMS.API.Controllers
     {
         private readonly EMSDbContext dbContext;
         private readonly IRoleRepository roleRepository;
+        private readonly ILogger<RolesController> _logger;
 
 
-        public RolesController(EMSDbContext dbContext, IRoleRepository roleRepository)
+        public RolesController(EMSDbContext dbContext, IRoleRepository roleRepository, ILogger<RolesController> logger)
         {
             this.dbContext = dbContext;
             this.roleRepository = roleRepository;
+            this._logger = logger;
         }
 
         [HttpGet]
         public async Task<ActionResult<List<RolesDTO>>> GetAllRolesAsync()
         {
-            var roles = await roleRepository.GetAllRolesAsync();
-
-            var rolesDto = new List<RolesDTO>();
-
-            foreach (var role in roles)
+            try
             {
-                var roleDto = new RolesDTO
-                {
-                    RoleID = role.RoleID,
-                    RoleName = role.RoleName,
-                    IsActive = role.IsActive
-                };
-                rolesDto.Add(roleDto);
-            }
+                _logger.LogInformation("Fetching all roles");
+                var roles = await roleRepository.GetAllRolesAsync();
 
-            return Ok(rolesDto);
+                var rolesDto = new List<RolesDTO>();
+
+                foreach (var role in roles)
+                {
+                    var roleDto = new RolesDTO
+                    {
+                        RoleID = role.RoleID,
+                        RoleName = role.RoleName,
+                        IsActive = role.IsActive
+                    };
+                    rolesDto.Add(roleDto);
+                }
+
+                _logger.LogInformation("Successfully retrieved {Count} roles", rolesDto.Count);
+                return Ok(rolesDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching all roles");
+                throw;
+            }
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<RolesDTO>> GetRoleByIDAsync([FromRoute] int id)
         {
-            var role = await roleRepository.GetRoleByIDAsync(id);
-
-            if (role == null)
-                return NotFound();
-
-            var dto = new RolesDTO
+            try
             {
-                RoleID = role.RoleID,
-                RoleName = role.RoleName,
-                IsActive = role.IsActive
-            };
-            return Ok(dto);
+                _logger.LogInformation("Fetching role with ID: {RoleId}", id);
+                var role = await roleRepository.GetRoleByIDAsync(id);
+
+                if (role == null)
+                {
+                    _logger.LogWarning("Role with ID: {RoleId} not found", id);
+                    throw new NotFoundException("Role", id);
+                }
+
+                var dto = new RolesDTO
+                {
+                    RoleID = role.RoleID,
+                    RoleName = role.RoleName,
+                    IsActive = role.IsActive
+                };
+
+                _logger.LogInformation("Successfully retrieved role with ID: {RoleId}", id);
+                return Ok(dto);
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching role with ID: {RoleId}", id);
+                throw;
+            }
         }
 
         [HttpPost]
         public async Task<ActionResult<AddRoleRequestDTO>> CreateRoleAsync([FromBody] AddRoleRequestDTO dto)
         {
-            var roleDomain = new Roles
+            try
             {
-                RoleName = dto.RoleName
-            };
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state for creating role");
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
+                }
 
+                _logger.LogInformation("Creating new role: {RoleName}", dto.RoleName);
+                var roleDomain = new Roles
+                {
+                    RoleName = dto.RoleName
+                };
 
-            roleDomain = await roleRepository.CreateRoleAsync(roleDomain);
+                roleDomain = await roleRepository.CreateRoleAsync(roleDomain);
 
-            //Mapping Domain model back to DTO
-            var newRoleDto = new AddRoleRequestDTO
+                var newRoleDto = new AddRoleRequestDTO
+                {
+                    RoleID = roleDomain.RoleID,
+                    RoleName = roleDomain.RoleName,
+                    IsActive = roleDomain.IsActive
+                };
+
+                _logger.LogInformation("Successfully created role with ID: {RoleId}", newRoleDto.RoleID);
+                return CreatedAtAction(nameof(GetRoleByIDAsync), new { id = newRoleDto.RoleID }, newRoleDto);
+            }
+            catch (ValidationException)
             {
-                RoleID = dto.RoleID,
-                RoleName = roleDomain.RoleName,
-                IsActive = roleDomain.IsActive
-
-            };
-
-            return CreatedAtAction(nameof(GetRoleByIDAsync), new { id = newRoleDto.RoleID }, newRoleDto);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while creating role");
+                throw;
+            }
         }
 
         [HttpPut("{id}")]
         public async Task<ActionResult<RolesDTO>> UpdateRoleAsync([FromRoute] int id, [FromBody] UpdateRoleRequestDTO dto)
         {
-            var roleDomain = new Roles
+            try
             {
-                RoleName = dto.RoleName,
-            };
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state for updating role with ID: {RoleId}", id);
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
+                }
 
-            roleDomain = await roleRepository.UpdateRoleAsync(id, roleDomain);
+                _logger.LogInformation("Updating role with ID: {RoleId}", id);
+                var roleDomain = new Roles
+                {
+                    RoleName = dto.RoleName,
+                };
 
-            if (roleDomain == null)
-            {
-                return NotFound();
+                roleDomain = await roleRepository.UpdateRoleAsync(id, roleDomain);
+
+                if (roleDomain == null)
+                {
+                    _logger.LogWarning("Role with ID: {RoleId} not found for update", id);
+                    throw new NotFoundException("Role", id);
+                }
+
+                var roleDto = new RolesDTO
+                {
+                    RoleID = roleDomain.RoleID,
+                    RoleName = roleDomain.RoleName
+                };
+
+                _logger.LogInformation("Successfully updated role with ID: {RoleId}", id);
+                return Ok(roleDto);
             }
-
-            //Convert DomainModel to DTO
-            var roleDto = new RolesDTO
+            catch (NotFoundException)
             {
-                RoleID = roleDomain.RoleID,
-                RoleName = roleDomain.RoleName
-            };
-            return Ok(roleDto);
+                throw;
+            }
+            catch (ValidationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while updating role with ID: {RoleId}", id);
+                throw;
+            }
         }
 
         [HttpDelete("{id}")]
         public async Task<ActionResult<RolesDTO>> DeleteRole([FromRoute] int id)
         {
-            var roleDomain = await roleRepository.DeleteRoleAsync(id);
-            
-            if (roleDomain == null)
+            try
             {
-                return NotFound();
+                _logger.LogInformation("Deleting role with ID: {RoleId}", id);
+                var roleDomain = await roleRepository.DeleteRoleAsync(id);
+                
+                if (roleDomain == null)
+                {
+                    _logger.LogWarning("Role with ID: {RoleId} not found for deletion", id);
+                    throw new NotFoundException("Role", id);
+                }
+
+                var roleDto = new RolesDTO
+                {
+                    RoleID = roleDomain.RoleID,
+                    RoleName = roleDomain.RoleName
+                };
+
+                _logger.LogInformation("Successfully deleted role with ID: {RoleId}", id);
+                return Ok(roleDto);
             }
-
-            var roleDto = new RolesDTO
+            catch (NotFoundException)
             {
-                RoleID = roleDomain.RoleID,
-                RoleName = roleDomain.RoleName
-
-            };
-            return Ok(roleDto);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting role with ID: {RoleId}", id);
+                throw;
+            }
         }
     }
 }

@@ -1,11 +1,14 @@
-﻿using EMS.Application.DTO;
+﻿using AutoMapper;
+using EMS.Application.DTO;
 using EMS.Domain.Entities;
+using EMS.Domain.Exceptions;
 using EMS.Domain.Repository;
 using EMS.Infra.Data.Context;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
+using System;
 
 
 namespace EMS.WebAPI.Controllers
@@ -17,153 +20,182 @@ namespace EMS.WebAPI.Controllers
     {
         private readonly EMSDbContext dbContext;
         private readonly IUserRepository userRepository;
+        private readonly IMapper mapper;
+        private readonly ILogger<UsersController> _logger;
 
 
-        public UsersController(EMSDbContext dbContext, IUserRepository userRepository)
+        public UsersController(EMSDbContext dbContext, IUserRepository userRepository, IMapper mapper, ILogger<UsersController> logger)
         {
             this.dbContext = dbContext;
             this.userRepository = userRepository;
-
+            this.mapper = mapper;
+            this._logger = logger;
         }
 
         //GET: Get all users
         [HttpGet]
-        public async Task<IActionResult> GetAllUsersAsync()
+        public async Task<ActionResult<UsersDTO>> GetAllUsersAsync()
         {
-            //Get data from database - Domain Models(using DbContext)
-           // var usersDomain = await dbContext.Users.ToListAsync();
-            //Get data using Repository Pattern
-            var usersDomain = await userRepository.GetAllUsersAsync();
-
-            //Map Domain Models to DTOs
-            var usersDto = new List<UsersDTO>();
-
-            //Return DTOs back to client
-           foreach(var userDomain in usersDomain)
+            try
             {
-                var userDto = new UsersDTO
-                {
-                    UserID = userDomain.UserID,
-                    UserName = userDomain.UserName,
-                    EmailID = userDomain.EmailID
-
-                };
-                usersDto.Add(userDto);
+                _logger.LogInformation("Fetching all users");
+                var usersDomain = await userRepository.GetAllUsersAsync();
+                var usersDto = mapper.Map<List<UsersDTO>>(usersDomain);
+                _logger.LogInformation("Successfully retrieved {Count} users", usersDto.Count);
+                return Ok(usersDto);
             }
-
-            return Ok(usersDto);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching all users");
+                throw;
+            }
         }
 
         //GET: Get user by id
         [HttpGet]
         [Route("{id}")]
-
-        public async Task<IActionResult> GetUserByIdAsync([FromRoute] int id)
+        public async Task<ActionResult<UsersDTO>> GetUserByIdAsync([FromRoute] int id)
         {
-            // Replace this line in GetUserById method:
-            // var user = dbContext.Users.Find(id);  //Find method only works with primary key so for other fields use FirstOrDefault
-
-            // var user = await dbContext.Users.FindAsync(id);  // Use async version for await
-
-            // var userDomain = await dbContext.Users.FirstOrDefaultAsync(u => u.UserID == id);
-
-            //Get data using Repository Pattern
-            var userDomain = await userRepository.GetUserByIDAsync(id);
-
-            if (userDomain == null)
+            try
             {
-                return NotFound();
+                _logger.LogInformation("Fetching user with ID: {UserId}", id);
+                var userDomain = await userRepository.GetUserByIDAsync(id);
+
+                if (userDomain == null)
+                {
+                    _logger.LogWarning("User with ID: {UserId} not found", id);
+                    throw new NotFoundException("User", id);
+                }
+
+                var userDto = mapper.Map<UsersDTO>(userDomain);
+                _logger.LogInformation("Successfully retrieved user with ID: {UserId}", id);
+                return Ok(userDto);
             }
-
-            //Map/Convert User Domain model to UserDTO
-
-            var userDto = new UsersDTO
+            catch (NotFoundException)
             {
-                UserID = userDomain.UserID,
-                UserName = userDomain.UserName,
-                EmailID = userDomain.EmailID
-            };
-            return Ok(userDto);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching user with ID: {UserId}", id);
+                throw;
+            }
         }
 
         //POST: To create a new user
         [HttpPost]
-        public async Task<IActionResult> CreateUserAsync([FromBody] AddUserRequestDTO userDto)
+        public async Task<ActionResult<AddUserRequestDTO>> CreateUserAsync([FromBody] AddUserRequestDTO userDto)
         {
-            //Map/Convert UserDTO to User Domain model
-            var userDomain = new Users
+            try
             {
-                UserName = userDto.UserName,
-                EmailID = userDto.EmailID
-            };
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state for creating user");
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
+                }
 
-            //Use Domain model to create & save data to database
-            // dbContext.Users.Add(userDomain);
-            //await dbContext.SaveChangesAsync();
+                _logger.LogInformation("Creating new user: {UserName}", userDto.UserName);
+                var userDomain = mapper.Map<Users>(userDto);
+                userDomain = await userRepository.CreateUserAsync(userDomain);
 
-            //Use Repository Pattern to create user
-            userDomain = await userRepository.CreateUserAsync(userDomain);
-
-            //Mapping Domain model back to DTO
-            var newuserDto = new AddUserRequestDTO
+                var newuserDto = mapper.Map<UsersDTO>(userDomain);
+                _logger.LogInformation("Successfully created user with ID: {UserId}", newuserDto.UserID);
+                return CreatedAtAction(nameof(GetUserByIdAsync), new { id = newuserDto.UserID }, newuserDto);
+            }
+            catch (ValidationException)
             {
-                UserID = userDomain.UserID,
-                UserName = userDomain.UserName,
-                EmailID = userDomain.EmailID
-            };
-
-            return CreatedAtAction(nameof(GetUserByIdAsync), new { id = newuserDto.UserID }, newuserDto);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while creating user");
+                throw;
+            }
         }
 
         //PUT: Update the resource
         [HttpPut]
         [Route("{id}")]
-
-        public async Task<IActionResult> UpdateUserAsync([FromRoute] int id, [FromBody] UpdateUserRequestDTO updateUserRequestDto)
+        public async Task<ActionResult<UsersDTO>> UpdateUserAsync([FromRoute] int id, [FromBody] UpdateUserRequestDTO updateUserRequestDto)
         {
-            //Map DTO to Domin Model
-            var userDomain = new Users
+            try
             {
-                UserName = updateUserRequestDto.UserName,
-                EmailID = updateUserRequestDto.EmailID,
-            };
-            //var userDomain = await dbContext.Users.FirstOrDefaultAsync(u => u.UserID == id);
-            userDomain = await userRepository.UpdateUserAsync(id, userDomain);
-           
-           if (userDomain == null) {    
-                return NotFound();
-            }
+                if (!ModelState.IsValid)
+                {
+                    _logger.LogWarning("Invalid model state for updating user with ID: {UserId}", id);
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
+                }
 
-            //Convert DomainModel to DTO
-            var userDto = new UsersDTO
+                _logger.LogInformation("Updating user with ID: {UserId}", id);
+                var userDomain = mapper.Map<Users>(updateUserRequestDto);
+                userDomain = await userRepository.UpdateUserAsync(id, userDomain);
+               
+                if (userDomain == null)
+                {    
+                    _logger.LogWarning("User with ID: {UserId} not found for update", id);
+                    throw new NotFoundException("User", id);
+                }
+
+                var userDto = mapper.Map<UsersDTO>(userDomain);
+                _logger.LogInformation("Successfully updated user with ID: {UserId}", id);
+                return Ok(userDto);
+            }
+            catch (NotFoundException)
             {
-                UserID = userDomain.UserID,
-                EmailID = userDomain.EmailID
-            };
-            return Ok(userDto);
+                throw;
+            }
+            catch (ValidationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while updating user with ID: {UserId}", id);
+                throw;
+            }
         }
 
         //DELETE: Delete a user
         [HttpDelete]
         [Route("{id}")]
-        public async Task<IActionResult> DeleteUserAsync([FromRoute] int id)
+        public async Task<ActionResult<UsersDTO>> DeleteUserAsync([FromRoute] int id)
         {
-            var userDomain = await userRepository.DeleteAsync(id);
-            //Check if user exists
-            if (userDomain == null)
+            try
             {
-                return NotFound();
-            }
-            
-            //returning deleted user back after Converting DomainModel to DTO
-            var userDto = new UsersDTO
-            {
-                UserID = userDomain.UserID,
-                UserName = userDomain.UserName,
-                EmailID = userDomain.EmailID
-            };
-            return Ok(userDto);
-        }
+                _logger.LogInformation("Deleting user with ID: {UserId}", id);
+                var userDomain = await userRepository.DeleteAsync(id);
 
+                if (userDomain == null)
+                {
+                    _logger.LogWarning("User with ID: {UserId} not found for deletion", id);
+                    throw new NotFoundException("User", id);
+                }
+
+                var userDto = mapper.Map<UsersDTO>(userDomain);
+                _logger.LogInformation("Successfully deleted user with ID: {UserId}", id);
+                return Ok(userDto);
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting user with ID: {UserId}", id);
+                throw;
+            }
+        }
     }
 }
