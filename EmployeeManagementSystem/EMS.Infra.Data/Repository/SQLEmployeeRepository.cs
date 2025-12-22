@@ -30,8 +30,8 @@ namespace EMS.Infra.Data.Repository
             try
             {
                 _logger.LogDebug("Retrieving all employees from database");
-            return await dbContext.Employees.ToListAsync();
-        }
+                return await dbContext.Employees.ToListAsync();
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Database error while retrieving all employees");
@@ -44,8 +44,8 @@ namespace EMS.Infra.Data.Repository
             try
             {
                 _logger.LogDebug("Retrieving employee with ID: {EmployeeId}", id);
-            return await dbContext.Employees.FirstOrDefaultAsync(x => x.EmployeeID == id);
-        }
+                return await dbContext.Employees.FirstOrDefaultAsync(x => x.EmployeeID == id);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Database error while retrieving employee with ID: {EmployeeId}", id);
@@ -58,11 +58,19 @@ namespace EMS.Infra.Data.Repository
             try
             {
                 _logger.LogDebug("Creating new employee: {FirstName} {LastName}", emp.FirstName, emp.LastName);
-            await dbContext.Employees.AddAsync(emp);
-            await dbContext.SaveChangesAsync();
+                await dbContext.Employees.AddAsync(emp);
+                await dbContext.SaveChangesAsync();
                 _logger.LogDebug("Successfully created employee with ID: {EmployeeId}", emp.EmployeeID);
-            return emp;
-        }
+
+                // Update the user's email to professional email when converted to employee
+                if (emp.UserID > 0)
+                {
+                    _logger.LogDebug("Converting user {UserId} email to professional email", emp.UserID);
+                    await UpdateUserEmailOnEmployeeConversionAsync(emp.UserID, emp.FirstName, emp.LastName);
+                }
+
+                return emp;
+            }
             catch (DbUpdateException ex)
             {
                 _logger.LogError(ex, "Database update error while creating employee");
@@ -80,24 +88,24 @@ namespace EMS.Infra.Data.Repository
             try
             {
                 _logger.LogDebug("Updating employee with ID: {EmployeeId}", id);
-            var existingEmp = await dbContext.Employees.FirstOrDefaultAsync(x => x.EmployeeID == id);
+                var existingEmp = await dbContext.Employees.FirstOrDefaultAsync(x => x.EmployeeID == id);
 
-            if (existingEmp == null)
-            {
+                if (existingEmp == null)
+                {
                     _logger.LogDebug("Employee with ID: {EmployeeId} not found for update", id);
-                return null;
-            }
+                    return null;
+                }
 
-            existingEmp.FirstName = emp.FirstName;
-            existingEmp.LastName = emp.LastName;
-            existingEmp.DepartmentID = emp.DepartmentID;
-            existingEmp.RoleID = emp.RoleID;
-            existingEmp.IsActive = emp.IsActive;
+                existingEmp.FirstName = emp.FirstName;
+                existingEmp.LastName = emp.LastName;
+                existingEmp.DepartmentID = emp.DepartmentID;
+                existingEmp.RoleID = emp.RoleID;
+                existingEmp.IsActive = emp.IsActive;
 
-            await dbContext.SaveChangesAsync();
+                await dbContext.SaveChangesAsync();
                 _logger.LogDebug("Successfully updated employee with ID: {EmployeeId}", id);
-            return existingEmp;
-        }
+                return existingEmp;
+            }
             catch (DbUpdateException ex)
             {
                 _logger.LogError(ex, "Database update error while updating employee with ID: {EmployeeId}", id);
@@ -115,19 +123,19 @@ namespace EMS.Infra.Data.Repository
             try
             {
                 _logger.LogDebug("Deleting employee with ID: {EmployeeId}", id);
-            var existingEmp = await dbContext.Employees.FirstOrDefaultAsync(x => x.EmployeeID == id);
+                var existingEmp = await dbContext.Employees.FirstOrDefaultAsync(x => x.EmployeeID == id);
 
-            if (existingEmp == null)
-            {
+                if (existingEmp == null)
+                {
                     _logger.LogDebug("Employee with ID: {EmployeeId} not found for deletion", id);
-                return null;
-            }
+                    return null;
+                }
 
-            dbContext.Employees.Remove(existingEmp);
-            await dbContext.SaveChangesAsync();
+                dbContext.Employees.Remove(existingEmp);
+                await dbContext.SaveChangesAsync();
                 _logger.LogDebug("Successfully deleted employee with ID: {EmployeeId}", id);
-            return existingEmp;
-        }
+                return existingEmp;
+            }
             catch (DbUpdateException ex)
             {
                 _logger.LogError(ex, "Database update error while deleting employee with ID: {EmployeeId}", id);
@@ -140,5 +148,41 @@ namespace EMS.Infra.Data.Repository
             }
         }
 
+        public async Task<string> UpdateUserEmailOnEmployeeConversionAsync(int userId, string firstName, string lastName, string companyDomain = "company.com")
+        {
+            try
+            {
+                _logger.LogDebug("Updating email for user {UserId} to professional format: {FirstName}.{LastName}@{Domain}", 
+                    userId, firstName, lastName, companyDomain);
+
+                var userIdParam = new SqlParameter("@UserID", SqlDbType.Int) { Value = userId };
+                var firstNameParam = new SqlParameter("@FirstName", SqlDbType.NVarChar, 100) { Value = firstName };
+                var lastNameParam = new SqlParameter("@LastName", SqlDbType.NVarChar, 100) { Value = lastName };
+                var domainParam = new SqlParameter("@CompanyDomain", SqlDbType.NVarChar, 100) { Value = companyDomain };
+                var newEmailParam = new SqlParameter("@NewEmail", SqlDbType.NVarChar, 255)
+                {
+                    Direction = ParameterDirection.Output
+                };
+
+                await dbContext.Database.ExecuteSqlRawAsync(
+                    "EXEC [dbo].[SP_UpdateUserEmailOnEmployeeConversion] @UserID, @FirstName, @LastName, @CompanyDomain, @NewEmail OUTPUT",
+                    userIdParam, firstNameParam, lastNameParam, domainParam, newEmailParam);
+
+                var newEmail = newEmailParam.Value?.ToString() ?? string.Empty;
+                _logger.LogInformation("Successfully updated email for user {UserId} to {NewEmail}", userId, newEmail);
+
+                return newEmail;
+            }
+            catch (SqlException ex)
+            {
+                _logger.LogError(ex, "SQL error while updating email for user {UserId}", userId);
+                throw new DatabaseException("UpdateUserEmailOnEmployeeConversion", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error while updating email for user {UserId}", userId);
+                throw new DatabaseException("UpdateUserEmailOnEmployeeConversion", ex);
+            }
+        }
     }
 }
