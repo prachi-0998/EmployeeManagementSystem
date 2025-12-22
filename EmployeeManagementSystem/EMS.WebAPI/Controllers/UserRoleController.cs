@@ -119,7 +119,7 @@ namespace EMS.API.Controllers
                 };
 
                 _logger.LogInformation("Successfully created user role with ID: {UserRoleId}", urDomain.UserRoleID);
-                return CreatedAtAction(nameof(GetUserRoleByIDAsync), new { id = urDomain.UserRoleID }, newurDto);
+                return Created($"/api/UserRole/{urDomain.UserRoleID}", newurDto);
             }
             catch (ValidationException)
             {

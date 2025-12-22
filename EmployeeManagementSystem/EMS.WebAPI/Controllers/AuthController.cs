@@ -1,5 +1,6 @@
 ﻿using EMS.Application.DTO;
 using EMS.Application.Services;
+using EMS.Domain.Exceptions;
 using EMS.Infra.Data.Context;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,11 +12,13 @@ namespace EMS.API.Controllers
     {
         private readonly EMSDbContext dbContext;
         private readonly IAuthService authService;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(EMSDbContext dbContext, IAuthService authService)
+        public AuthController(EMSDbContext dbContext, IAuthService authService, ILogger<AuthController> logger)
         {
             this.dbContext = dbContext;
             this.authService = authService;
+            this._logger = logger;
         }
 
         /// <summary>
@@ -30,24 +33,44 @@ namespace EMS.API.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
+                    _logger.LogWarning("Invalid model state for user registration");
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
                 }
 
+                _logger.LogInformation("Attempting to register new user: {UserName}", registerRequest.UserName);
                 var user = await authService.RegisterAsync(registerRequest);
 
+                _logger.LogInformation("Successfully registered user: {UserName} with ID: {UserId}", user.UserName, user.UserID);
                 return Ok(new
                 {
                     Message = "User registered successfully",
                     User = user
                 });
             }
+            catch (ValidationException)
+            {
+                throw;
+            }
+            catch (DuplicateException ex)
+            {
+                _logger.LogWarning(ex, "Duplicate user registration attempt: {UserName}", registerRequest.UserName);
+                throw;
+            }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(new { Message = ex.Message });
+                _logger.LogWarning(ex, "Invalid operation during registration: {Message}", ex.Message);
+                throw;
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Message = $"Registration failed: {ex.Message}" });
+                _logger.LogError(ex, "Error occurred during user registration: {UserName}", registerRequest.UserName);
+                throw;
             }
         }
 
@@ -63,25 +86,44 @@ namespace EMS.API.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    return BadRequest(ModelState);
+                    _logger.LogWarning("Invalid model state for user login");
+                    var errors = ModelState
+                        .Where(x => x.Value?.Errors.Count > 0)
+                        .ToDictionary(
+                            x => x.Key,
+                            x => x.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                        );
+                    throw new ValidationException(errors);
                 }
 
+                _logger.LogInformation("Login attempt for user: {UserName}", loginRequest.UserName);
                 var result = await authService.LoginAsync(loginRequest);
 
                 if (result == null)
                 {
-                    return Unauthorized(new { Message = "Invalid username or password" });
+                    _logger.LogWarning("Failed login attempt for user: {UserName}", loginRequest.UserName);
+                    throw new UnauthorizedException("Invalid username or password");
                 }
 
+                _logger.LogInformation("Successful login for user: {UserName}", loginRequest.UserName);
                 return Ok(new
                 {
                     Message = "Login successful",
                     Data = result
                 });
             }
+            catch (ValidationException)
+            {
+                throw;
+            }
+            catch (UnauthorizedException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Message = $"Login failed: {ex.Message}" });
+                _logger.LogError(ex, "Error occurred during login for user: {UserName}", loginRequest.UserName);
+                throw;
             }
         }
 
@@ -92,7 +134,16 @@ namespace EMS.API.Controllers
         [HttpGet("test")]
         public IActionResult Test()
         {
-            return Ok(new { Message = "Auth controller is working!", Timestamp = DateTime.UtcNow });
+            try
+            {
+                _logger.LogInformation("Auth test endpoint called");
+                return Ok(new { Message = "Auth controller is working!", Timestamp = DateTime.UtcNow });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred in auth test endpoint");
+                throw;
+            }
         }
     }
 }

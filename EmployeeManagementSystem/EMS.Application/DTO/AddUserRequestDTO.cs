@@ -8,8 +8,6 @@ namespace EMS.Application.DTO
 {
     public class AddUserRequestDTO
     {
-        public int UserID { get; set; }
-
         public string UserName { get; set; } = string.Empty;
 
         public string EmailID { get; set; } = string.Empty;

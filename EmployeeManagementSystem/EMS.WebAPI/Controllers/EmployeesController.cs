@@ -101,7 +101,9 @@ namespace EMS.API.Controllers
 
                 var newempDto = mapper.Map<EmployeesDTO>(empDomain);
                 _logger.LogInformation("Successfully created employee with ID: {EmployeeId}", newempDto.EmployeeID);
-                return CreatedAtAction(nameof(GetEmployeeByIDAsync), new { id = newempDto.EmployeeID }, newempDto);
+                
+                
+                return Created($"/api/Employees/{newempDto.EmployeeID}", newempDto);
             }
             catch (Exception ex)
             {

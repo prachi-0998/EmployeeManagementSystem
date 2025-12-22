@@ -1,8 +1,10 @@
+using AutoMapper;
 using EMS.Application.Mappings;
 using EMS.Application.Services;
 using EMS.Domain.Repository;
 using EMS.Infra.Data.Context;
 using EMS.Infra.Data.Repository;
+using EMS.WebAPI.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -77,6 +79,71 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
     };
+
+    // Handle JWT authentication errors with user-friendly messages
+    options.Events = new JwtBearerEvents
+    {
+        OnChallenge = async context =>
+        {
+            // Skip the default response
+            context.HandleResponse();
+
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+
+            var message = "You need to log in to access this resource.";
+            var suggestion = "Please provide a valid authentication token.";
+
+            if (!string.IsNullOrEmpty(context.ErrorDescription))
+            {
+                if (context.ErrorDescription.Contains("expired", StringComparison.OrdinalIgnoreCase))
+                {
+                    message = "Your session has expired.";
+                    suggestion = "Please log in again to continue.";
+                }
+                else if (context.ErrorDescription.Contains("signature", StringComparison.OrdinalIgnoreCase))
+                {
+                    message = "Your authentication token is invalid.";
+                    suggestion = "Please log in again to get a new token.";
+                }
+            }
+
+            var response = new
+            {
+                success = false,
+                title = "Authentication Required",
+                message = message,
+                suggestion = suggestion,
+                traceId = context.HttpContext.TraceIdentifier
+            };
+
+            await context.Response.WriteAsJsonAsync(response);
+        },
+        OnAuthenticationFailed = context =>
+        {
+            if (context.Exception is SecurityTokenExpiredException)
+            {
+                context.Response.Headers.Append("Token-Expired", "true");
+            }
+            return Task.CompletedTask;
+        },
+        OnForbidden = async context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+
+            var response = new
+            {
+                success = false,
+                title = "Access Denied",
+                message = "You don't have permission to access this resource.",
+                suggestion = "Please contact your administrator if you need access.",
+                traceId = context.HttpContext.TraceIdentifier
+            };
+
+            await context.Response.WriteAsJsonAsync(response);
+        }
+    };
 });
 
 //injecting DBContext
@@ -99,6 +166,10 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+
+// Register Global Exception Handler Middleware first to catch all exceptions
+app.UseGlobalExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

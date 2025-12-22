@@ -103,7 +103,7 @@ namespace EMS.API.Controllers
 
                 var newDeptDto = mapper.Map<DepartmentsDTO>(deptDomain);
                 _logger.LogInformation("Successfully created department with ID: {DepartmentId}", newDeptDto.DepartmentID);
-                return CreatedAtAction(nameof(GetDepartmentByIDAsync), new { id = newDeptDto.DepartmentID }, newDeptDto);
+                return Created($"/api/Departments/{newDeptDto.DepartmentID}", newDeptDto);
             }
             catch (ValidationException)
             {

@@ -127,7 +127,7 @@ namespace EMS.API.Controllers
                 };
 
                 _logger.LogInformation("Successfully created role with ID: {RoleId}", newRoleDto.RoleID);
-                return CreatedAtAction(nameof(GetRoleByIDAsync), new { id = newRoleDto.RoleID }, newRoleDto);
+                return Created($"/api/Roles/{newRoleDto.RoleID}", newRoleDto);
             }
             catch (ValidationException)
             {

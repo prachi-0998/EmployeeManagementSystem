@@ -106,7 +106,7 @@ namespace EMS.WebAPI.Controllers
 
                 var newuserDto = mapper.Map<UsersDTO>(userDomain);
                 _logger.LogInformation("Successfully created user with ID: {UserId}", newuserDto.UserID);
-                return CreatedAtAction(nameof(GetUserByIdAsync), new { id = newuserDto.UserID }, newuserDto);
+                return Created($"/api/Users/{newuserDto.UserID}", newuserDto);
             }
             catch (ValidationException)
             {
