@@ -29,7 +29,12 @@ namespace EMS.API.Controllers
             this._logger = logger;
         }
 
+        /// <summary>
+        /// Get all user roles
+        /// </summary>
+        /// <returns>List of all user roles with their IDs, user IDs, role IDs, and active status</returns>
         [HttpGet]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<List<UserRoleDTO>>> GetAllUserRoleAsync()
         {
             try
@@ -48,7 +53,12 @@ namespace EMS.API.Controllers
         }
 
 
+        /// <summary>
+        /// Get a user role by ID
+        /// </summary>
+        
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<UserRoleDTO>> GetUserRoleByIDAsync([FromRoute] int id)
         {
             try
@@ -84,7 +94,12 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Create a new user role
+        /// </summary>
+        
         [HttpPost]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<AddUserRoleRequestDTO>> CreateUserRoleAsync([FromBody] AddUserRoleRequestDTO dto)
         {
             try
@@ -132,7 +147,12 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Update an existing user role
+        /// </summary>
+        
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<UserRoleDTO>> UpdateUserRoleAsync([FromRoute] int id, [FromBody] AddUserRoleRequestDTO dto)
         {
             try
@@ -191,7 +211,12 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Delete a user role
+        /// </summary>
+        
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<UserRoleDTO>> DeleteUserRoleAsync([FromRoute] int id)
         {
             try

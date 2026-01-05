@@ -30,8 +30,12 @@ namespace EMS.API.Controllers
             this._logger = logger;
         }
 
-        // GET: api/departments
+        /// <summary>
+        /// Get all departments
+        /// </summary>
+        
         [HttpGet]
+        [Authorize(Roles = "Admin, HR, Employee, Manager")]
         public async Task<ActionResult<List<DepartmentsDTO>>> GetAllDepartmentsAsync()
         {
             try
@@ -49,8 +53,13 @@ namespace EMS.API.Controllers
             }
         }
 
-        // GET: api/departments/{id}
+        /// <summary>
+        /// Get a department by ID
+        /// </summary>
+        
+        
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin, HR, Employee, Manager")]
         public async Task<ActionResult<DepartmentsDTO>> GetDepartmentByIDAsync([FromRoute] int id)
         {
             try
@@ -79,8 +88,13 @@ namespace EMS.API.Controllers
             }
         }
 
-        // POST: api/departments
+        /// <summary>
+        /// Create a new department
+        /// </summary>
+        /// <param name="dto">Department creation request containing department name</param>
+        
         [HttpPost]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<AddDepartmentRequestDTO>> CreateDepartmentAsync([FromBody] AddDepartmentRequestDTO dto)
         {
             try
@@ -116,8 +130,13 @@ namespace EMS.API.Controllers
             }
         }
 
-        // PUT: api/departments/{id}
+        /// <summary>
+        /// Update an existing department
+        /// </summary>
+        
+        
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<DepartmentsDTO>> UpdateDepartmentAsync([FromRoute] int id, [FromBody] UpdateDepartmentRequestDTO dto)
         {
             try
@@ -163,8 +182,12 @@ namespace EMS.API.Controllers
             }
         }
 
-        // DELETE: api/departments/{id}
+        /// <summary>
+        /// Delete a department
+        /// </summary>
+        
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<DepartmentsDTO>> DeleteDepartmentAsync([FromRoute] int id)
         {
             try

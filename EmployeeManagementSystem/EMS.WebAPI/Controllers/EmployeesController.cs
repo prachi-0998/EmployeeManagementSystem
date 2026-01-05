@@ -31,7 +31,13 @@ namespace EMS.API.Controllers
             this._logger = logger;
         }
 
+
+        /// <summary>
+        /// Get all employees
+        /// </summary>
+        /// <returns>List of all employees with their IDs, names, and active status</returns>
         [HttpGet]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<List<EmployeesDTO>>> GetAllEmployeesAsync()
         {
             try
@@ -49,11 +55,25 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Get an employee by ID
+        /// Admin/HR can view any employee. Employee/Manager can only view their own employee record.
+        /// </summary>
+        /// <param name="id">The unique identifier of the employee</param>
+        /// <returns>Employee details including ID, name, and active status</returns>
         [HttpGet("{id}")]
         public async Task<ActionResult<EmployeesDTO>> GetEmployeeByIDAsync([FromRoute] int id)
         {
             try
             {
+                // Get current user's ID from JWT token
+                var currentUserIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+                if (currentUserIdClaim == null || !int.TryParse(currentUserIdClaim.Value, out int currentUserId))
+                {
+                    _logger.LogWarning("Unable to extract user ID from token");
+                    throw new UnauthorizedException("Invalid token");
+                }
+
                 _logger.LogInformation("Fetching employee with ID: {EmployeeId}", id);
                 var emp = await empRepository.GetEmployeeByIDAsync(id);
 
@@ -61,6 +81,17 @@ namespace EMS.API.Controllers
                 {
                     _logger.LogWarning("Employee with ID: {EmployeeId} not found", id);
                     throw new NotFoundException("Employee", id);
+                }
+
+                // Check if user is Admin or HR
+                var isAdminOrHR = User.IsInRole("Admin") || User.IsInRole("HR");
+
+               
+                if (!isAdminOrHR && emp.UserID != currentUserId)
+                {
+                    _logger.LogWarning("User {CurrentUserId} attempted to access employee {EmployeeId} without permission", 
+                        currentUserId, id);
+                    throw new UnauthorizedException("You can only view your own employee record");
                 }
 
                 var dto = mapper.Map<EmployeesDTO>(emp);
@@ -71,6 +102,10 @@ namespace EMS.API.Controllers
             {
                 throw;
             }
+            catch (UnauthorizedException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while fetching employee with ID: {EmployeeId}", id);
@@ -78,7 +113,12 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Create a new employee
+        /// </summary>
+
         [HttpPost]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<AddEmployeeRequestDTO>> CreateEmployeeAsync([FromBody] AddEmployeeRequestDTO dto)
         {
             try
@@ -112,7 +152,12 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Update an existing employee
+        /// </summary>
+        
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<EmployeesDTO>> UpdateEmployeeAsync([FromRoute] int id, [FromBody] UpdateEmployeeRequestDTO dto)
         {
             try
@@ -158,7 +203,12 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Delete an employee
+        /// </summary>
+        
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<EmployeesDTO>> DeleteEmployeeAsync([FromRoute] int id)
         {
             try

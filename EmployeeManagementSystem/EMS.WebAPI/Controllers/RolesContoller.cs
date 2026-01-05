@@ -28,7 +28,12 @@ namespace EMS.API.Controllers
             this._logger = logger;
         }
 
+        /// <summary>
+        /// Get all roles in the system
+        /// </summary>
+        /// <returns>List of all roles with their IDs, names, and active status</returns>
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<List<RolesDTO>>> GetAllRolesAsync()
         {
             try
@@ -59,7 +64,13 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Get a specific role by ID
+        /// </summary>
+        /// <param name="id">The unique identifier of the role</param>
+        /// <returns>Role details including ID, name, and active status</returns>
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<RolesDTO>> GetRoleByIDAsync([FromRoute] int id)
         {
             try
@@ -94,7 +105,13 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Create a new role (Admin only)
+        /// </summary>
+        /// <param name="dto">Role creation request containing role name</param>
+        /// <returns>The newly created role with its assigned ID</returns>
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<AddRoleRequestDTO>> CreateRoleAsync([FromBody] AddRoleRequestDTO dto)
         {
             try
@@ -140,7 +157,14 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Update an existing role (Admin only)
+        /// </summary>
+        /// <param name="id">The unique identifier of the role to update</param>
+        /// <param name="dto">Role update request containing updated role name</param>
+        /// <returns>The updated role details</returns>
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<RolesDTO>> UpdateRoleAsync([FromRoute] int id, [FromBody] UpdateRoleRequestDTO dto)
         {
             try
@@ -195,7 +219,13 @@ namespace EMS.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Delete a role from the system (Admin only)
+        /// </summary>
+        /// <param name="id">The unique identifier of the role to delete</param>
+        /// <returns>The deleted role details</returns>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<RolesDTO>> DeleteRole([FromRoute] int id)
         {
             try

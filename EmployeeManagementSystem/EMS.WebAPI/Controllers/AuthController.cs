@@ -2,6 +2,7 @@
 using EMS.Application.Services;
 using EMS.Domain.Exceptions;
 using EMS.Infra.Data.Context;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EMS.API.Controllers
@@ -27,6 +28,7 @@ namespace EMS.API.Controllers
         /// <param name="registerRequest">User registration details</param>
         /// <returns>Created user information</returns>
         [HttpPost("register")]
+        [AllowAnonymous]
         public async Task<ActionResult<UsersDTO>> RegisterAsync([FromBody] RegisterRequestDTO registerRequest)
         {
             try
@@ -80,6 +82,7 @@ namespace EMS.API.Controllers
         /// <param name="loginRequest">User login credentials</param>
         /// <returns>JWT token and user information</returns>
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<ActionResult<LoginRequestDTO>> LoginAsync([FromBody] LoginRequestDTO loginRequest)
         {
             try
@@ -127,23 +130,7 @@ namespace EMS.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Test endpoint to verify authentication is working
-        /// </summary>
-        /// <returns>Success message</returns>
-        [HttpGet("test")]
-        public IActionResult Test()
-        {
-            try
-            {
-                _logger.LogInformation("Auth test endpoint called");
-                return Ok(new { Message = "Auth controller is working!", Timestamp = DateTime.UtcNow });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred in auth test endpoint");
-                throw;
-            }
-        }
+        
+        
     }
 }

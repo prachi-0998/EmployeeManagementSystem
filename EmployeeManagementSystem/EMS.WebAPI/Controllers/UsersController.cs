@@ -32,8 +32,12 @@ namespace EMS.WebAPI.Controllers
             this._logger = logger;
         }
 
-        //GET: Get all users
+        /// <summary>
+        /// Get all users
+        /// </summary>
+        
         [HttpGet]
+        [Authorize(Roles = "Admin, HR")]
         public async Task<ActionResult<UsersDTO>> GetAllUsersAsync()
         {
             try
@@ -51,13 +55,36 @@ namespace EMS.WebAPI.Controllers
             }
         }
 
-        //GET: Get user by id
+        /// <summary>
+        /// Get a user by ID
+        /// Admin/HR can view any user. Employee/Manager can only view their own profile.
+        /// </summary>
+        
         [HttpGet]
         [Route("{id}")]
         public async Task<ActionResult<UsersDTO>> GetUserByIdAsync([FromRoute] int id)
         {
             try
             {
+                // Get current user's ID from JWT token
+                var currentUserIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+                if (currentUserIdClaim == null || !int.TryParse(currentUserIdClaim.Value, out int currentUserId))
+                {
+                    _logger.LogWarning("Unable to extract user ID from token");
+                    throw new UnauthorizedException("Invalid token");
+                }
+
+                // Check if user is Admin or HR
+                var isAdminOrHR = User.IsInRole("Admin") || User.IsInRole("HR");
+
+               
+                if (!isAdminOrHR && currentUserId != id)
+                {
+                    _logger.LogWarning("User {CurrentUserId} attempted to access user {RequestedUserId} without permission", 
+                        currentUserId, id);
+                    throw new UnauthorizedException("You can only view your own profile");
+                }
+
                 _logger.LogInformation("Fetching user with ID: {UserId}", id);
                 var userDomain = await userRepository.GetUserByIDAsync(id);
 
@@ -75,6 +102,10 @@ namespace EMS.WebAPI.Controllers
             {
                 throw;
             }
+            catch (UnauthorizedException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while fetching user with ID: {UserId}", id);
@@ -82,9 +113,13 @@ namespace EMS.WebAPI.Controllers
             }
         }
 
-        //POST: To create a new user
+        /// <summary>
+        /// Create a new user 
+        /// </summary>
+        
         [HttpPost]
-        public async Task<ActionResult<AddUserRequestDTO>> CreateUserAsync([FromBody] AddUserRequestDTO userDto)
+        [Authorize(Roles = "Admin, HR")]
+        public async Task<ActionResult<UsersDTO>> CreateUserAsync([FromBody] AddUserRequestDTO userDto)
         {
             try
             {
@@ -119,9 +154,14 @@ namespace EMS.WebAPI.Controllers
             }
         }
 
-        //PUT: Update the resource
+        /// <summary>
+        /// Update a user
+        /// </summary>
+        
+        
         [HttpPut]
-        [Route("{id}")]
+        [Authorize(Roles = "Admin, HR")]
+        [Route("{id}")] 
         public async Task<ActionResult<UsersDTO>> UpdateUserAsync([FromRoute] int id, [FromBody] UpdateUserRequestDTO updateUserRequestDto)
         {
             try
@@ -167,8 +207,12 @@ namespace EMS.WebAPI.Controllers
             }
         }
 
-        //DELETE: Delete a user
+        /// <summary>
+        /// Delete a user
+        /// </summary>
+        
         [HttpDelete]
+        [Authorize(Roles = "Admin, HR")]
         [Route("{id}")]
         public async Task<ActionResult<UsersDTO>> DeleteUserAsync([FromRoute] int id)
         {
